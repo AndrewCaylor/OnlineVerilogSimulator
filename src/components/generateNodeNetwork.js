@@ -328,8 +328,6 @@ export function generateBaseModuleObj(annotatedExpressions) {
     return obj;
 }
 
-
-
 export function elaborateModuleObj(obj, allModules) {
 
     let otherModules = [];
@@ -366,131 +364,6 @@ export function elaborateModuleObj(obj, allModules) {
     }
 }
 
-// /**
-//  * 
-//  * @param {just a bitwise expession} text 
-//  * ex: a|b(a&b)
-//  */
-// function analyzeBitwiseExpressison(text) {
-
-
-//     //TODO: concatentation checks
-//     //more operators
-//     //allow []
-
-//     //checks that the expression is some combination of:
-//     //a&(LITERALLY ANYTHING)^b^thing ... etc
-//     let seemsValid = text.match(/^~?\w+([\^\&\|]~?(\w+|(\([^\(]+\))))+$/);
-
-//     if (seemsValid) {
-//         //gets content between parentheses that is followed by an operator
-//         //will include interior if valid or not
-//         //a&(a?s^a)&v^((asdf???asdf)
-//         //   _____     ____________
-//         let substrings = text.match(/(?<=\().*?(?=\)[\^\&\|]?)/g);
-
-//         let textMinusSubstrings = text;
-
-//         //substrings cant be null
-//         if (substrings) {
-//             susbtrings.forEach(substring => {
-//                 textMinusSubstrings.replace(substring, "");
-//             });
-//         }
-
-//         // let operators = textMinusSubstrings.match(/[\^\&\|~]/g);
-//         //gets the operands and the empty parentehses
-//         // let operands = textMinusSubstrings.match(/(\w+)|(\(\))/g);
-
-//         //gets an array of the operands and operators
-//         let things = textMinusSubstrings.match(/([\^\&\|~])|((\w+)|(\(\)))/g);
-
-//         //do order of operations
-//         for (let i = 0; i < things.length; i++) {
-//             switch (things[i]) {
-//                 case "&":
-
-//                     break;
-//                 case "|":
-
-//                     break;
-
-//                 case "~&":
-
-//                     break;
-//                 case "~|":
-
-//                     break;
-
-//                 default:
-//                     break;
-//             }
-
-
-//         }
-
-//         //structure:
-//         /*{
-//             operator: &,
-//             operandA: a, 
-//             operandB: {
-//                 operator: |,
-//                 operandA: b,
-//                 operandB: c
-//             }
-//         }*/
-
-
-//         //TODO: create following object
-
-//     } else {
-//         return false;
-//     }
-// }
-
-/**
- * 
- * @param {just a standard assign statement} text 
- * ex: assing bla = basdfasdf;
- */
-function analyzeBitwiseAssignStatement(text) {
-    //prepare the text
-    text = text.split("=")[1];
-    text = text.replace(/\s/, "");
-
-    analyzeBitwiseExpressison(text);
-}
-
-function doOrderOfOperationsStep(textArray, op, obj) {
-
-    for (let i = 0; i < textArray.length; i++) {
-        if (element == op) {
-            //remove op, left, right from the array
-            let operand1 = textArray.splice(i, 1);
-            textArray.splice(i, 1);
-            let operand2 = textArray.splice(i, 1);
-
-
-        }
-    }
-}
-
-
-function doOrderOfOperationsStepNegation(textArray, obj) {
-
-    for (let i = 0; i < textArray.length; i++) {
-        if (textArray[i] == "~") {
-            //remove opearation
-            textArray.splice(i, 1);
-            //remove operand
-            let operand = textArray.splice(i, 1);
-
-
-        }
-
-    }
-}
-
 export function convertBitwiseExprToTree() {
 
 }
@@ -498,18 +371,29 @@ export function convertBitwiseExprToTree() {
 /**
  * 
  * @param {text of bitwise experession} text 
- * 
- * converts (~a&~b&c)|(~a&b&~c)|(c&d) to:
-    [{
-        operandA: "~a&~b&c"
-        operandB: "~a&b&~c"
-        operator: "|"
-    },
+ * NO SPACES
+ * converts (~a&~b&c)|(~a&b&~c) to:
     {
-        operandA: "~a&b&~c"
-        operandB: "c&d"
+        operandA: {
+            operandA: {
+                operandA: ~a,
+                operandB: ~b,
+                operator: & 
+            },
+            operandB: c,
+            operator: &
+        },
+        operandB: {
+            operandA: {
+                operandA: ~a,
+                operandB: b,
+                operator: & 
+            },
+            operandB: ~c,
+            operator: &
+        },
         operator: "|"
-    }]
+    }
  */
 export function convertBitwiseExprToJSON(text) {
 
@@ -517,7 +401,6 @@ export function convertBitwiseExprToJSON(text) {
     let seemsValid = text.match(/^~?(\w+|(\([^\(]+\)))([\^\&\|]~?(\w+|(\([^\(]+\))))+$/);
 
     if (!seemsValid) {
-        if (debug) console.log(text, "not valid");
         return null;
     };
 
@@ -529,16 +412,12 @@ export function convertBitwiseExprToJSON(text) {
     //variables that are negated will be treated as one object
     let textArray = textMinusSubstrings.match(/(~?[\^\&\|])|~?((\w+)|(\(\)))/g);
     let substringNum = 0; //keeps track of the substring to use to recurse
-    console.log(textArray);
-
 
     let orderOfOps = ["&", "|", "~&", "~|", "^", "~^"];
 
     orderOfOps.forEach(op => {
         for (let i = 0; i < textArray.length; i++) {
             if (textArray[i] == op) {
-                if (op == "|") console.log("| found");
-
 
                 let opA = textArray[i - 1];
                 let opB = textArray[i + 1];
@@ -566,19 +445,3 @@ export function convertBitwiseExprToJSON(text) {
     if (textArray.length == 1) return textArray[0];
     return textArray;
 }
-
-
-
-// //in valid verilog next thing might be a negation operator
-// if (opB == "~") {
-//     let negOp = textArray[1 + 2];
-//     if (negOp == "()") {
-//         negOp = substrings[susbtringNum];
-//         substringNum++;
-//     }
-
-//     opB = {
-//         operandA: negOp,
-//         operator: "~"
-//     };
-// }

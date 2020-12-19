@@ -54,9 +54,9 @@ export default {
     generateNetwork(){
       // util.generateNetwork(this.verilogCode);
 
-      let text = "(~a & ~b & c) | (~a & b & ~c) | (c & d)".replace(/\s/g, "");
+      let text = "(~a & ~b & c) | (~a & b & ~c)".replace(/\s/g, "");
 
-      console.log("expression",JSON.stringify(util.convertBitwiseExprToJSON(text)));
+      console.log("expression",util.convertBitwiseExprToJSON(text));
     },
     
     highlighter(code) {
