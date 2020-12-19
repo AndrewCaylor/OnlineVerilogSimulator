@@ -1,4 +1,4 @@
-# verilog_compiler
+# Online Verilog Simulator!
 
 ## Project setup
 ```
