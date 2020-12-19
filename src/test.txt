@@ -1,0 +1,74 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Module:      ssd0
+// Author:      Andrew Caylor
+// Created:     12/3/2020
+// Modified:    12/4/2020
+// Version:     1.1
+// Description: This module does seven segment decoding for HEX0
+//				This file includes the 7 segment decoder used in: ssd1, ssd2, ssd3
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//15 + 15 = 30ps delay
+//158 + 254 = 412 transistors
+module ssd0(in, out);
+	input  [3:0] in;
+	output [6:0] out;
+
+	wire [3:0] countOutput;
+
+	count3 c(in, countOutput);
+
+	ssd s(countOutput, out);
+
+endmodule
+
+//26 + 44 + 30 + 58 = 158 transistors
+//15ps delay
+module count3(present, next);
+	input  [3:0] present;
+	output [3:0] next;
+	
+	wire [3:0] store;
+	wire a,b,c,d;
+	
+	assign a = present[3];	
+	assign b = present[2];
+	assign c = present[1];
+	assign d = present[0];
+
+	//does the incrementing
+	assign next = {
+		~a & b & ~c & d, // 3*6 + 2*4 = 26
+		(b & ~c & ~d) | (~a & ~b & (c | d)), //6*6 + 4*2 = 44
+		(~c & ~d) | (~b & c & d), //4*6 + 2*3 = 30
+		(~a & ~c & ~d) | (b & c & d) | (~b & c & ~d) //8*6 + 5*2 = 58
+	};	
+endmodule
+
+
+//5(3) = 15 ps
+//50 + 20 + 50 + 44 + 36 + 16 + 38 = 254 transistors
+module ssd(in, out);
+	input  [3:0] in;
+	output [6:0] out;
+
+	wire a,b,c,d;
+	
+	//for convienience
+	assign a = in[3];	
+	assign b = in[2];
+	assign c = in[1];
+	assign d = in[0];
+
+	assign out[6] = (~a & ~b & c) | (~a & b & ~c) | (c & d); //7*6 + 4*2 = 50
+	assign out[5] = a | b | (c & ~d); //3*6 + 2 = 20
+	assign out[4] = (~a & ~b & c & ~d) | (~a & b & c & d); //7*6 + 4*2 = 50
+	assign out[3] = (c & ~d) | (b & c) | (~a & ~b & ~d); //6*6 + 4*2 = 44
+	assign out[2] = (~b & ~c & d) | (b & c & ~d); //5*6 + 3*2 = 36
+	assign out[1] = (b & ~d) | (~c & d); //3*6 + 2*2 = 16
+	assign out[0] = (~c & ~d) | (~a & b) | (c & ~d); //5*6 + 2*4 = 38
+
+endmodule

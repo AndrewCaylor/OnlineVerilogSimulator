@@ -35,28 +35,7 @@ import { highlight, languages } from "prismjs/components/prism-core";
 import "prismjs/components/prism-verilog";
 import "prismjs/themes/prism-tomorrow.css"; // import syntax highlighting styles
 
-import * as util from ".//hello";
-
-// class IO{
-//   constructor
-// }
-/*
-regex for checking statement syntax:
-
-assign: /assign\s+\w+\s+=.+/
-ex: assign asdf = ????
-
-module usage: /\w+\s+\w+\((\s*\w+)(,\s*\w+)*\)/
-ex: abc asdf( 1, 3, 56r)
-
-(swap out wire for input to )
-wire declaration: /wire\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+$)/
-ex: 
-wire [1:3] asdf, a
-wire asdfa
-
-
-*/
+import * as util from ".//generateNodeNetwork";
 
 export default {
   components: { CompileLogic, PrismEditor },
@@ -73,32 +52,12 @@ export default {
   methods: {
 
     generateNetwork(){
-      util.generateNetwork(this.verilogCode);
+      // util.generateNetwork(this.verilogCode);
+
+      let text = "(~a & ~b & c) | (~a & b & ~c) | (c & d)".replace(/\s/g, "");
+
+      console.log("expression",JSON.stringify(util.convertBitwiseExprToJSON(text)));
     },
-    
-    // elaborateModuleObj(text, thisModule) {
-    //   let expressions = text.split(";");
-
-    //   //for each expression find the modules/assign statements
-    //   for (let i = 1; i < expressions.length; i++) {
-    //     let temp = expressions[i];
-
-    //     if ((temp.match(/assign/g) || []).length == 1) {
-    //       //TODO
-    //     } else {
-    //       //if not an assign statement
-    //       //might delete these lines earlier to simplify things
-    //       if (temp.match(/wire|input|output/g).length == 0) {
-    //         let matched = false;
-
-    //         this.globalModules.forEach((globalModule) => {
-    //           if ((temp.match(globalModule.name) || []).length == 1) {
-    //           }
-    //         });
-    //       }
-    //     }
-    //   }
-    // },
     
     highlighter(code) {
       return highlight(code, languages.verilog); //returns html

@@ -1,5 +1,7 @@
 /* eslint-disable */
 
+let debug = true;
+
 //test that it works
 export function hi() {
     alert("hi");
@@ -182,9 +184,6 @@ export function generateNetwork(text) {
 
 
 export function generateBaseModuleObj(annotatedExpressions) {
-    console.log(annotatedExpressions)
-
-    //TODO check errors in syntax for user?
 
     /**
     structure:
@@ -209,7 +208,10 @@ export function generateBaseModuleObj(annotatedExpressions) {
         inputs: [],
         outputs: [],
         wires: [],
+        annotatedExpressions: []
     };
+
+    obj.annotatedExpressions = annotatedExpressions;
 
     obj.name = annotatedExpressions[0].expression.match(/\w+/g)[1]; //get second word
 
@@ -325,3 +327,258 @@ export function generateBaseModuleObj(annotatedExpressions) {
 
     return obj;
 }
+
+
+
+export function elaborateModuleObj(obj, allModules) {
+
+    let otherModules = [];
+
+    allModules.forEach(module => {
+        if (module.name != obj.name) otherModules.push(module);
+    });
+
+    let annotatedExpressions = obj.annotatedExpressions;
+
+    //for each expression find the modules/assign statements
+    for (let i = 1; i < annotatedExpressions.length; i++) {
+        let expression = annotatedExpressions[i].expression;
+
+        switch (annotatedExpressions[i].type) {
+            case "assign":
+                //implement  convertBitwiseExprToJSON here
+
+                break;
+            case "moduleUsage":
+
+                let moduleUsed = expression.match(/\w+/)[0]; //syntax wil be correct so i can index without checking if not null
+
+                otherModules.forEach(module => {
+                    if (module.name == moduleUsed) {
+
+                    }
+                });
+                break;
+            default:
+                break;
+        }
+
+    }
+}
+
+// /**
+//  * 
+//  * @param {just a bitwise expession} text 
+//  * ex: a|b(a&b)
+//  */
+// function analyzeBitwiseExpressison(text) {
+
+
+//     //TODO: concatentation checks
+//     //more operators
+//     //allow []
+
+//     //checks that the expression is some combination of:
+//     //a&(LITERALLY ANYTHING)^b^thing ... etc
+//     let seemsValid = text.match(/^~?\w+([\^\&\|]~?(\w+|(\([^\(]+\))))+$/);
+
+//     if (seemsValid) {
+//         //gets content between parentheses that is followed by an operator
+//         //will include interior if valid or not
+//         //a&(a?s^a)&v^((asdf???asdf)
+//         //   _____     ____________
+//         let substrings = text.match(/(?<=\().*?(?=\)[\^\&\|]?)/g);
+
+//         let textMinusSubstrings = text;
+
+//         //substrings cant be null
+//         if (substrings) {
+//             susbtrings.forEach(substring => {
+//                 textMinusSubstrings.replace(substring, "");
+//             });
+//         }
+
+//         // let operators = textMinusSubstrings.match(/[\^\&\|~]/g);
+//         //gets the operands and the empty parentehses
+//         // let operands = textMinusSubstrings.match(/(\w+)|(\(\))/g);
+
+//         //gets an array of the operands and operators
+//         let things = textMinusSubstrings.match(/([\^\&\|~])|((\w+)|(\(\)))/g);
+
+//         //do order of operations
+//         for (let i = 0; i < things.length; i++) {
+//             switch (things[i]) {
+//                 case "&":
+
+//                     break;
+//                 case "|":
+
+//                     break;
+
+//                 case "~&":
+
+//                     break;
+//                 case "~|":
+
+//                     break;
+
+//                 default:
+//                     break;
+//             }
+
+
+//         }
+
+//         //structure:
+//         /*{
+//             operator: &,
+//             operandA: a, 
+//             operandB: {
+//                 operator: |,
+//                 operandA: b,
+//                 operandB: c
+//             }
+//         }*/
+
+
+//         //TODO: create following object
+
+//     } else {
+//         return false;
+//     }
+// }
+
+/**
+ * 
+ * @param {just a standard assign statement} text 
+ * ex: assing bla = basdfasdf;
+ */
+function analyzeBitwiseAssignStatement(text) {
+    //prepare the text
+    text = text.split("=")[1];
+    text = text.replace(/\s/, "");
+
+    analyzeBitwiseExpressison(text);
+}
+
+function doOrderOfOperationsStep(textArray, op, obj) {
+
+    for (let i = 0; i < textArray.length; i++) {
+        if (element == op) {
+            //remove op, left, right from the array
+            let operand1 = textArray.splice(i, 1);
+            textArray.splice(i, 1);
+            let operand2 = textArray.splice(i, 1);
+
+
+        }
+    }
+}
+
+
+function doOrderOfOperationsStepNegation(textArray, obj) {
+
+    for (let i = 0; i < textArray.length; i++) {
+        if (textArray[i] == "~") {
+            //remove opearation
+            textArray.splice(i, 1);
+            //remove operand
+            let operand = textArray.splice(i, 1);
+
+
+        }
+
+    }
+}
+
+export function convertBitwiseExprToTree() {
+
+}
+
+/**
+ * 
+ * @param {text of bitwise experession} text 
+ * 
+ * converts (~a&~b&c)|(~a&b&~c)|(c&d) to:
+    [{
+        operandA: "~a&~b&c"
+        operandB: "~a&b&~c"
+        operator: "|"
+    },
+    {
+        operandA: "~a&b&~c"
+        operandB: "c&d"
+        operator: "|"
+    }]
+ */
+export function convertBitwiseExprToJSON(text) {
+
+    //tests for valid statement
+    let seemsValid = text.match(/^~?(\w+|(\([^\(]+\)))([\^\&\|]~?(\w+|(\([^\(]+\))))+$/);
+
+    if (!seemsValid) {
+        if (debug) console.log(text, "not valid");
+        return null;
+    };
+
+    //pulls out things in between parentheses
+    let substrings = text.match(/(?<=\().*?(?=\)[\^\&\|]?)/g);
+    //replaces the things in betwen prenenheses with nothing
+    let textMinusSubstrings = text.replace(/(?<=\().*?(?=\)[\^\&\|]?)/g, "");
+    //creates an interable array
+    //variables that are negated will be treated as one object
+    let textArray = textMinusSubstrings.match(/(~?[\^\&\|])|~?((\w+)|(\(\)))/g);
+    let substringNum = 0; //keeps track of the substring to use to recurse
+    console.log(textArray);
+
+
+    let orderOfOps = ["&", "|", "~&", "~|", "^", "~^"];
+
+    orderOfOps.forEach(op => {
+        for (let i = 0; i < textArray.length; i++) {
+            if (textArray[i] == op) {
+                if (op == "|") console.log("| found");
+
+
+                let opA = textArray[i - 1];
+                let opB = textArray[i + 1];
+
+                if (opA == "()") {
+                    opA = convertBitwiseExprToJSON(substrings[substringNum]);
+                    //only use next substring if the current one will never be used again
+                    substringNum++;
+                }
+                if (opB == "()") {
+                    opB = convertBitwiseExprToJSON(substrings[substringNum]);
+                }
+
+                textArray.splice(i - 1, 3, {
+                    operandA: opA,
+                    operator: textArray[i],
+                    operandB: opB
+                });
+
+                i--;
+            }
+        }
+    });
+
+    if (textArray.length == 1) return textArray[0];
+    return textArray;
+}
+
+
+
+// //in valid verilog next thing might be a negation operator
+// if (opB == "~") {
+//     let negOp = textArray[1 + 2];
+//     if (negOp == "()") {
+//         negOp = substrings[susbtringNum];
+//         substringNum++;
+//     }
+
+//     opB = {
+//         operandA: negOp,
+//         operator: "~"
+//     };
+// }
