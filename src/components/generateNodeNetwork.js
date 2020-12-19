@@ -364,10 +364,6 @@ export function elaborateModuleObj(obj, allModules) {
     }
 }
 
-export function convertBitwiseExprToTree() {
-
-}
-
 /**
  * 
  * @param {text of bitwise experession} text 
@@ -424,10 +420,12 @@ export function convertBitwiseExprToJSON(text) {
 
                 if (opA == "()") {
                     opA = convertBitwiseExprToJSON(substrings[substringNum]);
+                    if (!opA) return null;
                     //only use next substring if the current one will never be used again
                     substringNum++;
                 }
                 if (opB == "()") {
+                    if (!opB) return null;
                     opB = convertBitwiseExprToJSON(substrings[substringNum]);
                 }
 
