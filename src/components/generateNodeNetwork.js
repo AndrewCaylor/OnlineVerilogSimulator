@@ -508,3 +508,56 @@ function getAssignExprObj(text) {
 
     return obj;
 }
+
+/**
+ * 
+ * @param {text to evaluate} text 
+ * @param {starting index of evaluation} i 
+ * @param {character to close with} char 
+ */
+function getParenthesesObj(text, i, char) {
+    let array = [];
+    let recentText = "";
+
+    let recurseChar;
+
+    while (i < text.length) {
+        recurseChar = ")"
+
+        switch (text[i]) {
+            case "{":
+                recurseChar = "}";
+            case "(":
+                if (recentText) array.push(recentText);
+                recentText = "";
+                let next = getParenthesesObj(text, i + 1, recurseChar);
+
+                recurseChar = false;
+
+                //if the recursion doesnt end with a )  or } then it will not return with a value for i
+                //the next layer up will try to read false.i, which is undefined
+                if (!next.i) return false;
+
+                i = next.i;
+                array.push(next.array);
+
+                break;
+            case "}":
+                if ("}" != char) return false;
+
+                if (recentText) array.push(recentText);
+                return { "array": array, "i": i };
+            case ")":
+                if (")" != char) return false;
+
+                if (recentText) array.push(recentText);
+                return { "array": array, "i": i };
+            default:
+                recentText += text[i];
+                break;
+        }
+        i++
+    }
+
+    return array;
+}
