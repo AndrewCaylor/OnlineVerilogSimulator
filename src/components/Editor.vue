@@ -52,11 +52,11 @@ export default {
   methods: {
 
     generateNetwork(){
-      // util.generateNetwork(this.verilogCode);
+      util.generateNetwork(this.verilogCode);
 
-      let text = "(~a & ~b & c) | (~a & b & ~c)".replace(/\s/g, "");
+      // let text = "(~a & ~b & c) | (~a & b & ~c)".replace(/\s/g, "");
 
-      console.log("expression",util.convertBitwiseExprToJSON(text));
+      // console.log("expression",util.convertBitwiseExprToJSON(text));
     },
     
     highlighter(code) {

@@ -1,15 +1,10 @@
 /* eslint-disable */
 
-let debug = true;
-
 //test that it works
 export function hi() {
     alert("hi");
 }
 
-export function isComment(text) {
-    return (text.match(/assign\s+\w+\s+=.+/g) || []).length == 1;
-}
 export function isAssignStatement(text) {
     return (text.match(/assign\s+\w+((\[\d+\])|(\[\d+:\d+\]))*\s+=.+/g) || []).length == 1;
 }
@@ -68,8 +63,6 @@ export function getExpressionType(text) {
 
     return type;
 }
-
-
 
 export function generateNetwork(text) {
 
@@ -198,6 +191,11 @@ export function generateBaseModuleObj(annotatedExpressions) {
       ],
       outputs: [
         {name: <string>, bits: <int>}, ...
+      ],
+      dependencies:[
+          {name: <string>, callSyntax: [
+              variable: <string>, bitLength: <int>
+          ]}
       ]
     }
      */
@@ -245,8 +243,6 @@ export function generateBaseModuleObj(annotatedExpressions) {
     for (let i = 1; i < annotatedExpressions.length; i++) {
         let temp = annotatedExpressions[i].expression;
 
-        console.log(temp)
-
         switch (annotatedExpressions[i].type) {
             case "input":
                 length = getNumBits(temp);
@@ -281,6 +277,32 @@ export function generateBaseModuleObj(annotatedExpressions) {
                         bits: length,
                     });
                 });
+                break;
+            case "moduleUsage":
+
+                //TODO: add dependency info to base module obj
+                let dependencyObj = {
+                    name: "",
+                    usedModulename: ""
+                }
+
+                let words = temp.match(/((?=\s*)\w+((\[\d+\])|(\[\d+:\d+\]))*)/g);
+                let usedModuleName = words[0];
+                let name = words[1];
+                //sometime i might use this
+                // let moduleIO = words.slice(2);
+
+                // moduleIO.forEach(element => {
+                //     let bits;
+                //     if(element.match("[")){
+                //         let range = element.match(/\d/g);
+                //         bits = range[0] - range[1];
+                //     }
+                //     else{
+
+                //     }
+                // });
+
                 break;
         }
     }
@@ -328,6 +350,11 @@ export function generateBaseModuleObj(annotatedExpressions) {
     return obj;
 }
 
+/**
+ * 
+ * @param {module object created using generateBaseModuleObj} obj 
+ * @param {all the modules declared in the project} allModules 
+ */
 export function elaborateModuleObj(obj, allModules) {
 
     let otherModules = [];
@@ -336,26 +363,33 @@ export function elaborateModuleObj(obj, allModules) {
         if (module.name != obj.name) otherModules.push(module);
     });
 
-    let annotatedExpressions = obj.annotatedExpressions;
+    let annotatedExpressions = obj.annotatedExpressions; //shorthand
 
     //for each expression find the modules/assign statements
     for (let i = 1; i < annotatedExpressions.length; i++) {
         let expression = annotatedExpressions[i].expression;
 
+        //each node describes inputs, output, and JSON operation tree
+        let nodes = [];
+
         switch (annotatedExpressions[i].type) {
             case "assign":
-                //implement  convertBitwiseExprToJSON here
+                nodes.push(getAssignExprObj(expression));
 
                 break;
             case "moduleUsage":
 
-                let moduleUsed = expression.match(/\w+/)[0]; //syntax wil be correct so i can index without checking if not null
+                //TODO: probably insert child module JSON represntation into parent module
 
-                otherModules.forEach(module => {
-                    if (module.name == moduleUsed) {
+                // let matchTemp = expression.match(/\w+/);
+                // let moduleUsed = matchTemp[0]; //syntax wil be correct so i can index without checking if not null
+                // let name = matchTemp[1];
 
-                    }
-                });
+                // otherModules.forEach(module => {
+                //     if (module.name == moduleUsed) {
+
+                //     }
+                // });
                 break;
             default:
                 break;
@@ -392,6 +426,8 @@ export function elaborateModuleObj(obj, allModules) {
     }
  */
 export function convertBitwiseExprToJSON(text) {
+
+    //--------->TODO: deal with concatentenation
 
     //tests for valid statement
     let seemsValid = text.match(/^~?(\w+|(\([^\(]+\)))([\^\&\|]~?(\w+|(\([^\(]+\))))+$/);
@@ -442,4 +478,33 @@ export function convertBitwiseExprToJSON(text) {
 
     if (textArray.length == 1) return textArray[0];
     return textArray;
+}
+
+/**
+ * 
+ * @param {text of the expression (no spaces)} text 
+ */
+function getAssignExprObj(text) {
+    let obj = {
+        inputs: [],
+        output: "",
+        JSON: {}
+    };
+
+    let splitted = text.split('=');
+    let right = splitted[1];
+
+    //gets the value assigned to
+    obj.output = splitted[0].trim().split(" ")[1];
+
+    let allVars = right.match(/\w+/g);
+    allVars.forEach(element => {
+        if (!obj.inputs.includes(element)) {
+            obj.inputs.push(element);
+        }
+    });
+
+    obj.JSON = convertBitwiseExprToJSON(right.replace(/\s/g, ""));
+
+    return obj;
 }
