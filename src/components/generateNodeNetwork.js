@@ -4,7 +4,7 @@ export function hi() {
 }
 
 export function isAssignStatement(text) {
-    return (text.match(/assign\s+\w+((\[\d+\])|(\[\d+:\d+\]))*\s+=.+/g) || []).length == 1;
+    return (text.match(/assign\s+\w+((\[\d+\])|(\[\d+:\d+\]))*\s+=.+/g) || []).length == 1; //does noit check for correct syntax inside the statement
 }
 
 export function isModuleUsage(text) {
@@ -507,7 +507,14 @@ function getAssignExprObj(text) {
     return obj;
 }
 
+//TODO: somehow combine this with convert bitwise expression to json
+
 /**
+ * Operands of a parentheses type object are text or an object
+ * 
+ * Operands of a concatenation type object are arrays,
+ *  these arrays hold other expressions to evaluate
+ * 
  * probably dont touch this
  * @param {text to evaluate} text 
  * @param {starting index of evaluation} i 
@@ -542,7 +549,7 @@ function getParenthesesObj(text, i, charToCloseWith) {
                 }
                 recentText = "";
 
-                let next = getParenObj(text, i + 1,
+                let next = getParenthesesObj(text, i + 1,
                     text[i] == "(" ? ")" : "}");
 
                 //if the recursion doesnt end with a )  or } then it will not return with a value for i
@@ -566,9 +573,7 @@ function getParenthesesObj(text, i, charToCloseWith) {
                     if (recentText) recentArray.push(recentText);
                     obj.operands.push(recentArray);
                 } else {
-                    if (recentText) {
-                        obj.operands.push(recentText);
-                    }
+                    if (recentText) obj.operands.push(recentText);
                 }
 
                 return { "obj": obj, "i": i };
@@ -587,6 +592,8 @@ function getParenthesesObj(text, i, charToCloseWith) {
         }
         i++
     }
+
+    if (recentText) obj.operands.push(recentText);
 
     return obj;
 }
