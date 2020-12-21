@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 //test that it works
 export function hi() {
     alert("hi");
@@ -510,48 +508,79 @@ function getAssignExprObj(text) {
 }
 
 /**
- * 
+ * probably dont touch this
  * @param {text to evaluate} text 
  * @param {starting index of evaluation} i 
- * @param {character to close with} char 
+ * @param {character to close with} charToCloseWith 
  */
-function getParenthesesObj(text, i, char) {
-    let array = [];
+function getParenthesesObj(text, i, charToCloseWith) {
     let recentText = "";
+    let recentArray = [];
 
-    let recurseChar;
+    let operator;
+    if (!charToCloseWith) {
+        operator = null;
+    } else {
+        operator = charToCloseWith == ")" ? "paren" : "concat";
+    }
+
+    let obj = {
+        "operands": [],
+        "operator": operator
+    }
 
     while (i < text.length) {
-        recurseChar = ")"
-
         switch (text[i]) {
             case "{":
-                recurseChar = "}";
             case "(":
-                if (recentText) array.push(recentText);
+                if (recentText) {
+                    if (operator == "concat") {
+                        recentArray.push(recentText);
+                    } else {
+                        obj.operands.push(recentText);
+                    }
+                }
                 recentText = "";
-                let next = getParenthesesObj(text, i + 1, recurseChar);
 
-                recurseChar = false;
+                let next = getParenObj(text, i + 1,
+                    text[i] == "(" ? ")" : "}");
 
                 //if the recursion doesnt end with a )  or } then it will not return with a value for i
                 //the next layer up will try to read false.i, which is undefined
                 if (!next.i) return false;
 
                 i = next.i;
-                array.push(next.array);
+
+                if (operator == "concat") {
+                    recentArray.push(next.obj);
+                } else {
+                    obj.operands.push(next.obj);
+                }
 
                 break;
             case "}":
-                if ("}" != char) return false;
-
-                if (recentText) array.push(recentText);
-                return { "array": array, "i": i };
             case ")":
-                if (")" != char) return false;
+                if (text[i] != charToCloseWith) return false;
 
-                if (recentText) array.push(recentText);
-                return { "array": array, "i": i };
+                if (operator == "concat") {
+                    if (recentText) recentArray.push(recentText);
+                    obj.operands.push(recentArray);
+                } else {
+                    if (recentText) {
+                        obj.operands.push(recentText);
+                    }
+                }
+
+                return { "obj": obj, "i": i };
+            case ",":
+                if (charToCloseWith == ")") return false;
+
+                recentArray.push(recentText);
+                obj.operands.push(recentArray);
+                recentArray = [];
+                recentText = "";
+
+                break;
             default:
                 recentText += text[i];
                 break;
@@ -559,5 +588,5 @@ function getParenthesesObj(text, i, char) {
         i++
     }
 
-    return array;
+    return obj;
 }
