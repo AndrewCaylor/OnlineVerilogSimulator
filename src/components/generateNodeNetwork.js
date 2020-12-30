@@ -1,4 +1,26 @@
+/*eslint-disable*/
 //test that it works
+
+const bool = require("boolean-expressions").default;
+var Lexer = require("lex");
+
+//things to replace for expr eval lib to work:
+
+// {} => []
+// & => and
+// | => or
+// ~ => not
+
+
+// const parser = new Parser();
+// let expr = parser.parse("-b XOR [bits8,[a,b,c]]");
+// console.log(expr)
+
+// const b = new bool("a and b");
+// console.log(bool);
+// console.log("asdf", b);
+
+
 export function hi() {
     alert("hi");
 }
@@ -425,7 +447,7 @@ export function elaborateModuleObj(obj, allModules) {
  */
 export function convertBitwiseExprToJSON(text) {
 
-    //--------->TODO: deal with concatentenation
+    //Fundementally incorrect
 
     //tests for valid statement
     let seemsValid = text.match(/^~?(\w+|(\([^\(]+\)))([\^\&\|]~?(\w+|(\([^\(]+\))))+$/);
@@ -516,11 +538,11 @@ function getAssignExprObj(text) {
  *  these arrays hold other expressions to evaluate
  * 
  * probably dont touch this
- * @param {text to evaluate} text 
- * @param {starting index of evaluation} i 
- * @param {character to close with} charToCloseWith 
+ * @param {string} text 
+ * @param {number} i 
+ * @param {string} charToCloseWith 
  */
-function getParenthesesObj(text, i, charToCloseWith) {
+export function getParenthesesObj(text, i, charToCloseWith) {
     let recentText = "";
     let recentArray = [];
 
@@ -597,3 +619,162 @@ function getParenthesesObj(text, i, charToCloseWith) {
 
     return obj;
 }
+//BEGIN CODE FROM STACK OVERFLOW
+
+let lexer = new Lexer;
+lexer.addRule(/\s+/, function() {
+    /* skip whitespace */
+});
+lexer.addRule(/[a-z]+/, function(lexeme) {
+    return lexeme; // symbols
+});
+lexer.addRule(/[0-9]+/, function(lexeme) {
+    return lexeme; // symbols
+});
+
+//TODO: add support for correct operators
+lexer.addRule(/[\(\+\-\*\/\)]/, function(lexeme) {
+    return lexeme; // punctuation (i.e. "(", "+", "-", "*", "/", ")")
+});
+//TODO: read more about lexer to figure out wtf this is for
+let factor = {
+    precedence: 2,
+    associativity: "left"
+};
+let term = {
+    precedence: 1,
+    associativity: "left"
+};
+
+//TODO: add support for correct operators
+let parser = new Parser({
+    "+": term,
+    "-": term,
+    "*": factor,
+    "/": factor
+});
+
+/**
+ * outputs text in postfix "stack" notation
+ * @param { string } input 
+ */
+function parse(input) {
+    lexer.setInput(input);
+    let tokens = [],
+        token;
+    while (token = lexer.lex()) tokens.push(token);
+    return parser.parse(tokens);
+}
+
+//END CODE FROM STACK OVERFLOW
+
+
+//TODO: use framework to create function to evaulate stack
+function evaluate(context, parsedText) {
+    let stack = [];
+
+    //values for the letiables used
+    // let context = {
+    //     "a": 1,
+    //     "b": 2,
+    //     "c": 3,
+    //     "d": 4,
+    //     "e": 5
+    // };
+
+
+    let operators = {
+        "+": function(a, b) { return a + b; },
+        "-": function(a, b) { return a - b; },
+        "*": function(a, b) { return a * b; },
+        "/": function(a, b) { return a / b; }
+    };
+
+    parsedText.forEach(function(c) {
+        switch (c) {
+            case "+":
+            case "-":
+            case "*":
+            case "/":
+                let b = +stack.pop(); //the plus casts to a number
+                let a = +stack.pop();
+                stack.push(operators[c](a, b));
+                break;
+            default:
+                if (c.match(/^\d+$/)) {
+                    stack.push(+c)
+                } else {
+                    stack.push(context[c]);
+                }
+        }
+    });
+
+    return stack.pop();
+}
+
+/**
+ * probably declass this
+ * @param {string} table 
+ */
+function Parser(table) {
+    this.table = table;
+}
+
+//TODO: deal with concatentation
+Parser.prototype.parse = function(input) {
+    var length = input.length,
+        table = this.table,
+        output = [],
+        stack = [],
+        index = 0;
+
+    while (index < length) {
+        var token = input[index++];
+
+        switch (token) {
+            case "(":
+                stack.unshift(token);
+                break;
+            case ")":
+                while (stack.length) {
+                    var token = stack.shift();
+                    if (token === "(") break;
+                    else output.push(token);
+                }
+
+                if (token !== "(")
+                    throw new Error("Mismatched parentheses.");
+                break;
+            default:
+                if (table.hasOwnProperty(token)) {
+                    while (stack.length) {
+                        var punctuator = stack[0];
+
+                        if (punctuator === "(") break;
+
+                        var operator = table[token],
+                            precedence = operator.precedence,
+                            antecedence = table[punctuator].precedence;
+
+                        if (precedence > antecedence ||
+                            precedence === antecedence &&
+                            operator.associativity === "right") break;
+                        else output.push(stack.shift());
+                    }
+
+                    stack.unshift(token);
+                } else output.push(token);
+        }
+    }
+
+    while (stack.length) {
+        var token = stack.shift();
+        if (token !== "(") output.push(token);
+        else throw new Error("Mismatched parentheses.");
+    }
+
+    return output;
+};
+
+// let parsedText = parse("( a+a + 1234 ) * a")
+// console.log(evaluate({ "a": "1" }, parsedText))

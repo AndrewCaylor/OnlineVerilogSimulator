@@ -9,10 +9,13 @@
   },
   "dependencies": {
     "babel-runtime": "^6.26.0",
+    "boolean-expressions": "^1.1.1",
     "bootstrap": "^4.5.3",
     "bootstrap-vue": "^2.21.0",
     "code-prettify": "^0.1.0",
     "core-js": "^3.6.5",
+    "expr-eval": "^2.0.2",
+    "lex": "^1.7.9",
     "vue": "^2.6.12",
     "vue-prism-editor": "^1.2.2",
     "vue-prismjs": "^1.2.0"
