@@ -1,25 +1,6 @@
 /*eslint-disable*/
-//test that it works
 
-const bool = require("boolean-expressions").default;
 var Lexer = require("lex");
-
-//things to replace for expr eval lib to work:
-
-// {} => []
-// & => and
-// | => or
-// ~ => not
-
-
-// const parser = new Parser();
-// let expr = parser.parse("-b XOR [bits8,[a,b,c]]");
-// console.log(expr)
-
-// const b = new bool("a and b");
-// console.log(bool);
-// console.log("asdf", b);
-
 
 export function hi() {
     alert("hi");
@@ -114,8 +95,6 @@ export function generateNetwork(text) {
         });
     });
 
-    console.log(annotatedExpressions)
-
     let state = null;
     let moduleContent = [];
     let modules = [];
@@ -191,7 +170,6 @@ export function generateNetwork(text) {
     //   );
     // }
 
-    console.log(modules)
 }
 
 
@@ -418,209 +396,10 @@ export function elaborateModuleObj(obj, allModules) {
     }
 }
 
-/**
- * 
- * @param {text of bitwise experession} text 
- * NO SPACES
- * converts (~a&~b&c)|(~a&b&~c) to:
-    {
-        operandA: {
-            operandA: {
-                operandA: ~a,
-                operandB: ~b,
-                operator: & 
-            },
-            operandB: c,
-            operator: &
-        },
-        operandB: {
-            operandA: {
-                operandA: ~a,
-                operandB: b,
-                operator: & 
-            },
-            operandB: ~c,
-            operator: &
-        },
-        operator: "|"
-    }
- */
-export function convertBitwiseExprToJSON(text) {
-
-    //Fundementally incorrect
-
-    //tests for valid statement
-    let seemsValid = text.match(/^~?(\w+|(\([^\(]+\)))([\^\&\|]~?(\w+|(\([^\(]+\))))+$/);
-
-    if (!seemsValid) {
-        return null;
-    };
-
-    //pulls out things in between parentheses
-    let substrings = text.match(/(?<=\().*?(?=\)[\^\&\|]?)/g);
-    //replaces the things in betwen prenenheses with nothing
-    let textMinusSubstrings = text.replace(/(?<=\().*?(?=\)[\^\&\|]?)/g, "");
-    //creates an interable array
-    //variables that are negated will be treated as one object
-    let textArray = textMinusSubstrings.match(/(~?[\^\&\|])|~?((\w+)|(\(\)))/g);
-    let substringNum = 0; //keeps track of the substring to use to recurse
-
-    let orderOfOps = ["&", "|", "~&", "~|", "^", "~^"];
-
-    orderOfOps.forEach(op => {
-        for (let i = 0; i < textArray.length; i++) {
-            if (textArray[i] == op) {
-
-                let opA = textArray[i - 1];
-                let opB = textArray[i + 1];
-
-                if (opA == "()") {
-                    opA = convertBitwiseExprToJSON(substrings[substringNum]);
-                    if (!opA) return null;
-                    //only use next substring if the current one will never be used again
-                    substringNum++;
-                }
-                if (opB == "()") {
-                    if (!opB) return null;
-                    opB = convertBitwiseExprToJSON(substrings[substringNum]);
-                }
-
-                textArray.splice(i - 1, 3, {
-                    operandA: opA,
-                    operator: textArray[i],
-                    operandB: opB
-                });
-
-                i--;
-            }
-        }
-    });
-
-    if (textArray.length == 1) return textArray[0];
-    return textArray;
-}
-
-/**
- * 
- * @param {text of the expression (no spaces)} text 
- */
-function getAssignExprObj(text) {
-    let obj = {
-        inputs: [],
-        output: "",
-        JSON: {}
-    };
-
-    let splitted = text.split('=');
-    let right = splitted[1];
-
-    //gets the value assigned to
-    obj.output = splitted[0].trim().split(" ")[1];
-
-    let allVars = right.match(/\w+/g);
-    allVars.forEach(element => {
-        if (!obj.inputs.includes(element)) {
-            obj.inputs.push(element);
-        }
-    });
-
-    obj.JSON = convertBitwiseExprToJSON(right.replace(/\s/g, ""));
-
-    return obj;
-}
-
-//TODO: somehow combine this with convert bitwise expression to json
-
-/**
- * Operands of a parentheses type object are text or an object
- * 
- * Operands of a concatenation type object are arrays,
- *  these arrays hold other expressions to evaluate
- * 
- * probably dont touch this
- * @param {string} text 
- * @param {number} i 
- * @param {string} charToCloseWith 
- */
-export function getParenthesesObj(text, i, charToCloseWith) {
-    let recentText = "";
-    let recentArray = [];
-
-    let operator;
-    if (!charToCloseWith) {
-        operator = null;
-    } else {
-        operator = charToCloseWith == ")" ? "paren" : "concat";
-    }
-
-    let obj = {
-        "operands": [],
-        "operator": operator
-    }
-
-    while (i < text.length) {
-        switch (text[i]) {
-            case "{":
-            case "(":
-                if (recentText) {
-                    if (operator == "concat") {
-                        recentArray.push(recentText);
-                    } else {
-                        obj.operands.push(recentText);
-                    }
-                }
-                recentText = "";
-
-                let next = getParenthesesObj(text, i + 1,
-                    text[i] == "(" ? ")" : "}");
-
-                //if the recursion doesnt end with a )  or } then it will not return with a value for i
-                //the next layer up will try to read false.i, which is undefined
-                if (!next.i) return false;
-
-                i = next.i;
-
-                if (operator == "concat") {
-                    recentArray.push(next.obj);
-                } else {
-                    obj.operands.push(next.obj);
-                }
-
-                break;
-            case "}":
-            case ")":
-                if (text[i] != charToCloseWith) return false;
-
-                if (operator == "concat") {
-                    if (recentText) recentArray.push(recentText);
-                    obj.operands.push(recentArray);
-                } else {
-                    if (recentText) obj.operands.push(recentText);
-                }
-
-                return { "obj": obj, "i": i };
-            case ",":
-                if (charToCloseWith == ")") return false;
-
-                recentArray.push(recentText);
-                obj.operands.push(recentArray);
-                recentArray = [];
-                recentText = "";
-
-                break;
-            default:
-                recentText += text[i];
-                break;
-        }
-        i++
-    }
-
-    if (recentText) obj.operands.push(recentText);
-
-    return obj;
-}
 //BEGIN CODE FROM STACK OVERFLOW
+//https://stackoverflow.com/questions/23325832/parse-arithmetic-expression-with-javascript
 
+//creates token array
 let lexer = new Lexer;
 lexer.addRule(/\s+/, function() {
     /* skip whitespace */
@@ -628,30 +407,32 @@ lexer.addRule(/\s+/, function() {
 lexer.addRule(/[a-z]+/, function(lexeme) {
     return lexeme; // symbols
 });
-lexer.addRule(/[0-9]+/, function(lexeme) {
-    return lexeme; // symbols
+lexer.addRule(/('b[01])|(\d+)/, function(lexeme) {
+    return lexeme; //gets numbers and "bits"
 });
-
 //TODO: add support for correct operators
-lexer.addRule(/[\(\+\-\*\/\)]/, function(lexeme) {
-    return lexeme; // punctuation (i.e. "(", "+", "-", "*", "/", ")")
+lexer.addRule(/(~?[\^\&\|])|[\,\(\)\{\}]/, function(lexeme) {
+    return lexeme; // punctuation (i.e. "(", "&", "|", "}")
 });
 //TODO: read more about lexer to figure out wtf this is for
-let factor = {
-    precedence: 2,
-    associativity: "left"
-};
-let term = {
-    precedence: 1,
-    associativity: "left"
-};
+
+function getParserObj(precedence) {
+    return {
+        "precedence": precedence,
+        "associativity": "left"
+    }
+}
 
 //TODO: add support for correct operators
 let parser = new Parser({
-    "+": term,
-    "-": term,
-    "*": factor,
-    "/": factor
+    "~": getParserObj(0),
+    "&": getParserObj(1),
+    "|": getParserObj(2),
+    "~&": getParserObj(3),
+    "~|": getParserObj(4),
+    "^": getParserObj(5),
+    "~^": getParserObj(6),
+    ",": getParserObj(7)
 });
 
 /**
@@ -668,43 +449,46 @@ function parse(input) {
 
 //END CODE FROM STACK OVERFLOW
 
+import * as BitwiseLib from ".//bitwiseLib";
 
-//TODO: use framework to create function to evaulate stack
-function evaluate(context, parsedText) {
+/**
+ * 
+ * @param {Object} context in form: {var1: value, var2: value)
+ * @param {Array} tokens postfix notation stack
+ */
+function evaluateStack(context, tokens) {
     let stack = [];
 
-    //values for the letiables used
-    // let context = {
-    //     "a": 1,
-    //     "b": 2,
-    //     "c": 3,
-    //     "d": 4,
-    //     "e": 5
-    // };
-
-
-    let operators = {
-        "+": function(a, b) { return a + b; },
-        "-": function(a, b) { return a - b; },
-        "*": function(a, b) { return a * b; },
-        "/": function(a, b) { return a / b; }
-    };
-
-    parsedText.forEach(function(c) {
-        switch (c) {
-            case "+":
-            case "-":
-            case "*":
-            case "/":
-                let b = +stack.pop(); //the plus casts to a number
-                let a = +stack.pop();
-                stack.push(operators[c](a, b));
+    tokens.forEach(function(token) {
+        let a, b;
+        switch (token) {
+            case "~":
+                a = stack.pop();
+                stack.push(BitwiseLib.doOperation(token, a));
                 break;
+
+            case "&":
+            case "~&":
+            case "|":
+            case "~|":
+            case "^":
+            case "~^":
+            case ">>":
+            case "<<":
+            case ",":
+                a = stack.pop();
+                b = stack.pop();
+                stack.push(BitwiseLib.doOperation(token, a, b));
+                break;
+
             default:
-                if (c.match(/^\d+$/)) {
-                    stack.push(+c)
+                if (token.match(/^\d+$/)) { //TODO: detect hex, octal and convert to binary
+                    stack.push(BitwiseLib.stringToBitArray(c));
                 } else {
-                    stack.push(context[c]);
+                    if (context[token] === undefined) {
+                        return null;
+                    }
+                    stack.push(context[token]);
                 }
         }
     });
@@ -720,7 +504,11 @@ function Parser(table) {
     this.table = table;
 }
 
-//TODO: deal with concatentation
+//DONT CHANGE VAR TO LET
+/**
+ * 
+ * @param {Array} input array of tokens
+ */
 Parser.prototype.parse = function(input) {
     var length = input.length,
         table = this.table,
@@ -733,6 +521,7 @@ Parser.prototype.parse = function(input) {
 
         switch (token) {
             case "(":
+            case "{":
                 stack.unshift(token);
                 break;
             case ")":
@@ -745,16 +534,40 @@ Parser.prototype.parse = function(input) {
                 if (token !== "(")
                     throw new Error("Mismatched parentheses.");
                 break;
+            case "}":
+                while (stack.length) {
+                    var token = stack.shift();
+                    if (token === "{") break;
+                    else output.push(token);
+                }
+
+                if (token !== "{")
+                    throw new Error("Mismatched braces.");
+                break;
             default:
-                if (table.hasOwnProperty(token)) {
+                //if token is defined as a key in the table, or if the token is a number
+                //if casting fails, cast will return NaN and NaN is falsy
+                //if it is a number must be greater than 0
+                //TODO: Check validity of numbers
+                if (table.hasOwnProperty(token) || (+token)) {
                     while (stack.length) {
+
                         var punctuator = stack[0];
 
-                        if (punctuator === "(") break;
+                        if (punctuator === "(" || punctuator === "{") break;
 
-                        var operator = table[token],
-                            precedence = operator.precedence,
-                            antecedence = table[punctuator].precedence;
+                        var operator;
+                        var precedence;
+
+                        if (+token) {
+                            operator = token;
+                            precedence = 1;
+                        } else {
+                            operator = table[token];
+                            precedence = operator.precedence;
+                        }
+
+                        var antecedence = table[punctuator].precedence;
 
                         if (precedence > antecedence ||
                             precedence === antecedence &&
@@ -776,5 +589,14 @@ Parser.prototype.parse = function(input) {
     return output;
 };
 
-// let parsedText = parse("( a+a + 1234 ) * a")
-// console.log(evaluate({ "a": "1" }, parsedText))
+let parsedText = parse("{a,a} & b");
+console.log(parsedText)
+
+console.log(
+    BitwiseLib.bitArrayToString(
+        evaluateStack({
+            a: BitwiseLib.stringToBitArray("10"),
+            b: BitwiseLib.stringToBitArray("1100")
+        }, parsedText)
+    )
+)

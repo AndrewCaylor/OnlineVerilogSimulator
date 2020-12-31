@@ -12,7 +12,7 @@ export function initializeBitArray(length) {
  */
 export function stringToBitArray(text) {
     let out = [];
-    text.forEach(char => {
+    text.split("").forEach(char => {
         if (char === "0") {
             out.push(false);
         } else if (char === "1") {
@@ -24,7 +24,19 @@ export function stringToBitArray(text) {
     return out;
 }
 
-//TODO: test
+/**
+ * 
+ * @param {Array} array boolean array
+ */
+export function bitArrayToString(array) {
+    let out = "";
+    array.forEach(bit => {
+        out += bit ? "1" : "0";
+    });
+    return out;
+}
+
+//TODO: test these functs
 const operators = {
     "~": function(a) { return !a; },
     "~&": function(a, b) { return !(a && b); },
@@ -33,7 +45,7 @@ const operators = {
     "~|": function(a, b) { return !(a || b); },
     "^": function(a, b) { return (a || b) && !(a && b); },
     "~^": function(a, b) { return !((a || b) && !(a && b)); },
-    "}": function(arr) {
+    ",": function(arr) { //concatenate operation
         let out = [];
         arr.forEach(subArr => {
             out.concat(subArr);
@@ -60,57 +72,47 @@ const operators = {
 
 export const Operators = operators;
 
-//a&b,b&c
-//ab&bc&}
-
 /**
  * 
  * @param {string} operator string describing the operator to preform
- * @param {Array} operands array of boolean arrays
+ * @param {Array} a array of booleans
+ * @param {Array} b array of booleans (optional)
  */
-export function doOperation(operator, operands) {
+export function doOperation(operator, a, b) {
 
     let operation = operators[operator];
+    let out;
 
     switch (operator) {
         case "~":
-            if (operands.length != 1) {
-                return null;
+            out = [];
+            for (let i = 0; i < a.length; i++) {
+                out.push(operation(a[i]));
             }
-            return operation(operands[0]);
+            return out;
+
         case "&":
         case "~&":
         case "|":
         case "~|":
         case "^":
         case "~^":
-            if (operands.length != 2) {
-                return null;
-            }
-            a = operands[0];
-            b = operands[1];
             if (a.length != b.length) {
                 return null;
             }
 
-            let out = [];
-            for (let i = 0; i < array.length; i++) {
+            out = [];
+            for (let i = 0; i < a.length; i++) {
                 out.push(operation(a[i], b[i]));
             }
             return out;
 
-        case "}":
-            return operation(operands);
-            //TODO: check that I do not need to implement arithmetic and circular shifting
-        case ">>":
+        case ",":
+        case ">>": //TODO: check that I do not need to implement arithmetic and circular shifting
         case "<<":
-            if (operands.length != 2) {
-                return null;
-            }
-            a = operands[0];
-            b = operands[1];
-
             return operation(a, b);
+
+        default:
+            return null;
     }
-    return out;
 }
