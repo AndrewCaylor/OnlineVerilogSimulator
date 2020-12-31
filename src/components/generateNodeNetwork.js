@@ -407,11 +407,14 @@ lexer.addRule(/\s+/, function() {
 lexer.addRule(/[a-z]+/, function(lexeme) {
     return lexeme; // symbols
 });
+//TODO: also capture: 1234'h1234
+//b: binary d: decimal o: ocatal h: hex
+//ex: 5'hFFF => represents bit array 5 bits wide
 lexer.addRule(/('b[01])|(\d+)/, function(lexeme) {
     return lexeme; //gets numbers and "bits"
 });
 //TODO: add support for correct operators
-lexer.addRule(/(~?[\^\&\|])|[\,\(\)\{\}]/, function(lexeme) {
+lexer.addRule(/(~?[\^\&\|])|[\,\(\)\{\}]|(<<)|(>>)/, function(lexeme) {
     return lexeme; // punctuation (i.e. "(", "&", "|", "}")
 });
 //TODO: read more about lexer to figure out wtf this is for
@@ -423,7 +426,6 @@ function getParserObj(precedence) {
     }
 }
 
-//TODO: add support for correct operators
 let parser = new Parser({
     "~": getParserObj(0),
     "&": getParserObj(1),
@@ -432,7 +434,9 @@ let parser = new Parser({
     "~|": getParserObj(4),
     "^": getParserObj(5),
     "~^": getParserObj(6),
-    ",": getParserObj(7)
+    "<<": getParserObj(7),
+    ">>": getParserObj(8),
+    ",": getParserObj(9)
 });
 
 /**
@@ -459,7 +463,9 @@ import * as BitwiseLib from ".//bitwiseLib";
 function evaluateStack(context, tokens) {
     let stack = [];
 
-    tokens.forEach(function(token) {
+    for (let i = 0; i < tokens.length; i++) {
+        let token = tokens[i];
+
         let a, b;
         switch (token) {
             case "~":
@@ -473,17 +479,27 @@ function evaluateStack(context, tokens) {
             case "~|":
             case "^":
             case "~^":
+                //TODO: enable left and right shift by bit arrays
+                //converting bit arrays to number
             case ">>":
             case "<<":
             case ",":
+                console.log(stack)
                 a = stack.pop();
                 b = stack.pop();
                 stack.push(BitwiseLib.doOperation(token, a, b));
                 break;
 
             default:
-                if (token.match(/^\d+$/)) { //TODO: detect hex, octal and convert to binary
-                    stack.push(BitwiseLib.stringToBitArray(c));
+                //TODO: detect hex, octal and convert to binary
+                //then convert to bit array and push to stack
+                if (token.match(/^\d+$/)) {
+                    if (tokens[i + 1] == ">>" || tokens[i + 1] == "<<") {
+                        stack.push(token);
+                    } else {
+                        a = stack.pop();
+                        stack.push(BitwiseLib.Operators["DUPLICATE"](a, token));
+                    }
                 } else {
                     if (context[token] === undefined) {
                         return null;
@@ -491,8 +507,7 @@ function evaluateStack(context, tokens) {
                     stack.push(context[token]);
                 }
         }
-    });
-
+    }
     return stack.pop();
 }
 
@@ -550,32 +565,35 @@ Parser.prototype.parse = function(input) {
                 //if it is a number must be greater than 0
                 //TODO: Check validity of numbers
                 if (table.hasOwnProperty(token) || (+token)) {
-                    while (stack.length) {
+                    let lastEntry = stack[stack.length - 1];
+                    //if the number is being used as an operand for bit shifting, 
+                    //instead of being used as an operator for duplication
+                    if (+token && (lastEntry == "<<" || lastEntry == ">>")) output.push(token);
+                    else {
+                        while (stack.length) {
 
-                        var punctuator = stack[0];
+                            var punctuator = stack[0];
+                            if (punctuator === "(" || punctuator === "{") break;
+                            var operator;
+                            var precedence;
 
-                        if (punctuator === "(" || punctuator === "{") break;
+                            if (+token) {
+                                operator = token;
+                                precedence = 1;
+                            } else {
+                                operator = table[token];
+                                precedence = operator.precedence;
+                            }
 
-                        var operator;
-                        var precedence;
+                            var antecedence = table[punctuator].precedence;
 
-                        if (+token) {
-                            operator = token;
-                            precedence = 1;
-                        } else {
-                            operator = table[token];
-                            precedence = operator.precedence;
+                            if (precedence > antecedence ||
+                                precedence === antecedence &&
+                                operator.associativity === "right") break;
+                            else output.push(stack.shift());
                         }
-
-                        var antecedence = table[punctuator].precedence;
-
-                        if (precedence > antecedence ||
-                            precedence === antecedence &&
-                            operator.associativity === "right") break;
-                        else output.push(stack.shift());
+                        stack.unshift(token);
                     }
-
-                    stack.unshift(token);
                 } else output.push(token);
         }
     }
@@ -589,14 +607,15 @@ Parser.prototype.parse = function(input) {
     return output;
 };
 
-let parsedText = parse("{a,a} & b");
-console.log(parsedText)
+let parsedText = parse("{2{b}} & a");
+console.log("stack", parsedText)
 
-console.log(
-    BitwiseLib.bitArrayToString(
-        evaluateStack({
-            a: BitwiseLib.stringToBitArray("10"),
-            b: BitwiseLib.stringToBitArray("1100")
-        }, parsedText)
-    )
-)
+let evaluatedStack = evaluateStack({
+    a: BitwiseLib.binaryToBitArray("0100"),
+    b: BitwiseLib.binaryToBitArray("01"),
+
+}, parsedText);
+
+console.log("evaluated stack", evaluatedStack)
+
+console.log(BitwiseLib.bitArrayToString(evaluatedStack))

@@ -10,7 +10,7 @@ export function initializeBitArray(length) {
  * 
  * @param {string} text 0s and 1s
  */
-export function stringToBitArray(text) {
+export function binaryToBitArray(text) {
     let out = [];
     text.split("").forEach(char => {
         if (char === "0") {
@@ -25,6 +25,32 @@ export function stringToBitArray(text) {
 }
 
 /**
+ * ex: 5'hFFF => converts hex to binary and makes array 5 bits wide
+ * b: binary d: decimal o: ocatal h: hex
+ * @param {string} text 
+ */
+export function stringToBitArray(text) {
+    //TODO: check if numbers are valid
+    //TODO: implement things
+
+    let type = text.match(/(?<=\d+')[bdoh]/);
+    if (type) {
+        switch (type[0]) {
+            case "b":
+
+                break;
+
+
+            default:
+                break;
+        }
+    } else {
+        return null;
+    }
+}
+
+//TODO: implement bitArrayTo: decimal, hex, and octal
+/**
  * 
  * @param {Array} array boolean array
  */
@@ -36,7 +62,6 @@ export function bitArrayToString(array) {
     return out;
 }
 
-//TODO: test these functs
 const operators = {
     "~": function(a) { return !a; },
     "~&": function(a, b) { return !(a && b); },
@@ -45,28 +70,40 @@ const operators = {
     "~|": function(a, b) { return !(a || b); },
     "^": function(a, b) { return (a || b) && !(a && b); },
     "~^": function(a, b) { return !((a || b) && !(a && b)); },
-    ",": function(arr) { //concatenate operation
-        let out = [];
-        arr.forEach(subArr => {
-            out.concat(subArr);
-        });
-        return out;
-    },
+    ",": function(a, b) { return a.concat(b); },
+    /**
+     * Left shift b a times
+     * @param {Number} a 
+     * @param {Array} b 
+     */
     "<<": function(a, b) {
-        while (b > 0) {
-            a.shift();
-            a.push(false);
-            b--;
+        while (a > 0) {
+            b.shift();
+            b.push(false);
+            a--;
         }
-        return a;
+        return b;
     },
+    /**
+     * Right shift b a times
+     * @param {Number} a 
+     * @param {Array} b 
+     */
     ">>": function(a, b) {
+        while (a > 0) {
+            b.pop();
+            b.unshift(false)
+            a--;
+        }
+        return b;
+    },
+    "DUPLICATE": function(a, b) {
+        let out = [];
         while (b > 0) {
-            a.pop();
-            a = a.concat(false, a);
+            out = out.concat(a);
             b--;
         }
-        return a;
+        return out;
     }
 };
 
@@ -108,7 +145,7 @@ export function doOperation(operator, a, b) {
             return out;
 
         case ",":
-        case ">>": //TODO: check that I do not need to implement arithmetic and circular shifting
+        case ">>":
         case "<<":
             return operation(a, b);
 
