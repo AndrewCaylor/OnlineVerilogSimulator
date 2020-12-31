@@ -70,7 +70,7 @@ const operators = {
     "~|": function(a, b) { return !(a || b); },
     "^": function(a, b) { return (a || b) && !(a && b); },
     "~^": function(a, b) { return !((a || b) && !(a && b)); },
-    ",": function(a, b) { return a.concat(b); },
+    ",": function(a, b) { return b.concat(a); },
     /**
      * Left shift b a times
      * @param {Number} a 

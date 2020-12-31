@@ -414,7 +414,7 @@ lexer.addRule(/('b[01])|(\d+)/, function(lexeme) {
     return lexeme; //gets numbers and "bits"
 });
 //TODO: add support for correct operators
-lexer.addRule(/(~?[\^\&\|])|[\,\(\)\{\}]|(<<)|(>>)/, function(lexeme) {
+lexer.addRule(/(~?[\^\&\|])|[\,\(\)\{\}]|(<<)|(>>)|~/, function(lexeme) {
     return lexeme; // punctuation (i.e. "(", "&", "|", "}")
 });
 //TODO: read more about lexer to figure out wtf this is for
@@ -427,16 +427,16 @@ function getParserObj(precedence) {
 }
 
 let parser = new Parser({
-    "~": getParserObj(0),
-    "&": getParserObj(1),
-    "|": getParserObj(2),
-    "~&": getParserObj(3),
-    "~|": getParserObj(4),
-    "^": getParserObj(5),
-    "~^": getParserObj(6),
-    "<<": getParserObj(7),
-    ">>": getParserObj(8),
-    ",": getParserObj(9)
+    "~": getParserObj(9),
+    "&": getParserObj(8),
+    "|": getParserObj(7),
+    "~&": getParserObj(6),
+    "~|": getParserObj(5),
+    "^": getParserObj(4),
+    "~^": getParserObj(3),
+    "<<": getParserObj(2),
+    ">>": getParserObj(1),
+    ",": getParserObj(0)
 });
 
 /**
@@ -484,7 +484,6 @@ function evaluateStack(context, tokens) {
             case ">>":
             case "<<":
             case ",":
-                console.log(stack)
                 a = stack.pop();
                 b = stack.pop();
                 stack.push(BitwiseLib.doOperation(token, a, b));
@@ -607,13 +606,19 @@ Parser.prototype.parse = function(input) {
     return output;
 };
 
-let parsedText = parse("{2{b}} & a");
+let parsedText = parse(`{
+    ~a & b & ~c & d,
+    (b & ~c & ~d) | (~a & ~b & (c | d)),
+    (~c & ~d) | (~b & c & d),
+    (~a & ~c & ~d) | (b & c & d) | (~b & c & ~d)
+}`);
 console.log("stack", parsedText)
 
 let evaluatedStack = evaluateStack({
-    a: BitwiseLib.binaryToBitArray("0100"),
-    b: BitwiseLib.binaryToBitArray("01"),
-
+    a: BitwiseLib.binaryToBitArray("0"),
+    b: BitwiseLib.binaryToBitArray("0"),
+    c: BitwiseLib.binaryToBitArray("0"),
+    d: BitwiseLib.binaryToBitArray("0"),
 }, parsedText);
 
 console.log("evaluated stack", evaluatedStack)
