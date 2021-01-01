@@ -692,5 +692,5 @@ Parser.prototype.parse = function(input) {
 // }, parsedText);
 
 // console.log("evaluated stack", evaluatedStack)
-
+//
 // console.log(BitwiseLib.bitArrayToString(evaluatedStack))
