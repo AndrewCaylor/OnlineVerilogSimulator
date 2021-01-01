@@ -24,6 +24,39 @@ export function binaryToBitArray(text) {
     return out;
 }
 
+//Skylar stole this code
+function convertToBinary(x) {
+    let bin = 0;
+    let rem, i = 1, step = 1;
+    while (x != 0) {
+        rem = x % 2;
+        x = parseInt(x / 2);
+        bin = bin + rem * i;
+        i = i * 10;
+    }
+    return bin;
+}
+
+/**
+ * 
+ * @param {string} text 0s and 1s
+ */
+//Skylar wuz here, praise/blame him if it works/doesn't
+export function decimalToBitArray(text) {
+    //if this number has anything other than these symbols,
+    //it's not decimal ergo return null
+    let decimalArray = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    text.split("").forEach(char => {
+        if (!decimalArray.includes(char)) {
+            return null;
+        }
+    });
+    let number = parseInt(text);
+    let binary = convertToBinary(number).toString();
+    return binaryToBitArray(binary);
+}
+
+
 /**
  * ex: 5'hFFF => converts hex to binary and makes array 5 bits wide
  * b: binary d: decimal o: ocatal h: hex
