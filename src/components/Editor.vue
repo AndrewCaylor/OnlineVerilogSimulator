@@ -50,18 +50,21 @@ export default {
     };
   },
   methods: {
-
-    generateNetwork(){
+    generateNetwork() {
       util.generateNetwork(this.verilogCode);
     },
-    
+
     highlighter(code) {
       return highlight(code, languages.verilog); //returns html
     },
   },
   mounted() {
     this.verilogCode = window.localStorage.getItem("default");
-    console.log(languages);
+
+    let net = util.generateNetwork(this.verilogCode);
+    console.log(net)
+    let elaborated1 = util.elaborateModules(net);
+    console.log(elaborated1)
   },
 };
 </script>

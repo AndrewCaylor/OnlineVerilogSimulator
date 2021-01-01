@@ -82,13 +82,10 @@ export function generateNetwork(text) {
 
 
     text = decommentedLines.join("");
-
     let annotatedExpressions = []; //TODO: should also include information about the error
-
     let expressions = text.replace(/endmodule/g, "endmodule;").split(";"); //make sure there is a ; at every line and the split
 
     expressions.forEach((expression) => {
-
         annotatedExpressions.push({
             "expression": expression,
             type: getExpressionType(expression)
@@ -169,17 +166,72 @@ export function generateNetwork(text) {
     //     modules[i]
     //   );
     // }
-
+    return modules;
 }
 
+/**
+ * 
+ * @param {object} baseModuleObj 
+ * @param {string} variableName asdf or asdf[1:0] or asdf[0]
+ */
+function getVariableObj(baseModuleObj, variableText) {
+    console.log(baseModuleObj, variableText)
 
+    let splitted = variableText.split(/\[|\]/g);
 
-export function generateBaseModuleObj(annotatedExpressions) {
+    let parameterObj = {
+        name: splitted[0],
+        beginBit: null,
+        endBit: null,
+        type: null
+    };
 
-    /**
-    structure:
+    if (variableText.match(/\[/)) {
+        //var1[3:0] => [3,0]
+        let numbers = splitted[1].split(/:/g);
 
-    let obj = {
+        console.log(numbers)
+
+        if (numbers.length == 1) {
+            parameterObj.endBit = numbers[0];
+            parameterObj.beginBit = numbers[0];
+        } else if (numbers.length == 2) {
+            parameterObj.endBit = numbers[0];
+            parameterObj.beginBit = numbers[1];
+        } else {
+            return null;
+        }
+        let variableObj = getObj(baseModuleObj, parameterObj.name);
+        parameterObj.type = variableObj.type; //can be undefined
+    } else {
+        let variableObj = getObj(baseModuleObj, parameterObj.name);
+
+        parameterObj.type = variableObj.type; //can be undefined
+        parameterObj.beginBit = 0;
+        parameterObj.endBit = variableObj.bits - 1;
+    }
+
+    return parameterObj;
+
+    function getObj(baseModuleObj, variableName) {
+        for (let i = 0; i < baseModuleObj.callSyntax.length; i++) {
+            let element = baseModuleObj.callSyntax[i];
+            if (element.name == variableName) {
+                return element;
+            }
+        }
+        for (let i = 0; i < baseModuleObj.wires.length; i++) {
+            let element = baseModuleObj.wires[i];
+            if (element.name == variableName) {
+                return element;
+            }
+        }
+    }
+}
+
+/**
+ *  Structure of base module:
+    {
       name: <string>,
       callSyntax: [
         {name: <string>, bits: <int>, type: "I" or "O"}, ...
@@ -190,13 +242,14 @@ export function generateBaseModuleObj(annotatedExpressions) {
       outputs: [
         {name: <string>, bits: <int>}, ...
       ],
-      dependencies:[
-          {name: <string>, callSyntax: [
-              variable: <string>, bitLength: <int>
-          ]}
-      ]
+      wires: [
+        {name: <string>, bits: <int>}, ...
+      ],
+      annotatedExpressions: []
     }
-     */
+ * @param {Array} annotatedExpressions 
+ */
+export function generateBaseModuleObj(annotatedExpressions) {
 
     let obj = {
         name: null,
@@ -204,7 +257,8 @@ export function generateBaseModuleObj(annotatedExpressions) {
         inputs: [],
         outputs: [],
         wires: [],
-        annotatedExpressions: []
+        annotatedExpressions: [],
+        nodes: [] //used later
     };
 
     obj.annotatedExpressions = annotatedExpressions;
@@ -228,9 +282,7 @@ export function generateBaseModuleObj(annotatedExpressions) {
         let right = expressionText.substring(len); //removes the input/output/wire
 
         right = right.split("]"); //only get after brackets if there are any
-
         right = right.length > 1 ? right[right.length - 1] : right[0];
-
         right = right.replace(/\s/g, ""); //remove whitespace
 
         return right.split(",");
@@ -275,32 +327,6 @@ export function generateBaseModuleObj(annotatedExpressions) {
                         bits: length,
                     });
                 });
-                break;
-            case "moduleUsage":
-
-                //TODO: add dependency info to base module obj
-                let dependencyObj = {
-                    name: "",
-                    usedModulename: ""
-                }
-
-                let words = temp.match(/((?=\s*)\w+((\[\d+\])|(\[\d+:\d+\]))*)/g);
-                let usedModuleName = words[0];
-                let name = words[1];
-                //sometime i might use this
-                // let moduleIO = words.slice(2);
-
-                // moduleIO.forEach(element => {
-                //     let bits;
-                //     if(element.match("[")){
-                //         let range = element.match(/\d/g);
-                //         bits = range[0] - range[1];
-                //     }
-                //     else{
-
-                //     }
-                // });
-
                 break;
         }
     }
@@ -349,51 +375,95 @@ export function generateBaseModuleObj(annotatedExpressions) {
 }
 
 /**
+ * Things added to baseModuleObj:
+    nodes:[
+        {
+            type: "moduleUsage", moduleName: <string>, instanceName: <string>,
+            callSyntax: [{ name: <string>, beginBit: <int>, endBit: <int>, type: I/O/null }, ...]
+        }, 
+        {
+            type: "assign", instanceName: <string>, stack: <array>,
+            callSyntax: [{ name: <string>, beginBit: <int>, endBit: <int>, type: I/O/null }, ...]
+        },...
+      ]
  * 
- * @param {module object created using generateBaseModuleObj} obj 
- * @param {all the modules declared in the project} allModules 
+ * @param {object} obj module object created using generateBaseModuleObj
+ * @param {array} allModules all the modules declared in the project
  */
-export function elaborateModuleObj(obj, allModules) {
+function elaborateModuleObj(obj) {
 
-    let otherModules = [];
+    // let otherModules = [];
 
-    allModules.forEach(module => {
-        if (module.name != obj.name) otherModules.push(module);
-    });
+    // allModules.forEach(module => {
+    //     if (module.name != obj.name) otherModules.push(module);
+    // });
 
     let annotatedExpressions = obj.annotatedExpressions; //shorthand
 
     //for each expression find the modules/assign statements
     for (let i = 1; i < annotatedExpressions.length; i++) {
         let expression = annotatedExpressions[i].expression;
-
-        //each node describes inputs, output, and JSON operation tree
-        let nodes = [];
+        let child, words;
 
         switch (annotatedExpressions[i].type) {
             case "assign":
-                nodes.push(getAssignExprObj(expression));
+                child = {
+                    type: "assign",
+                    instanceName: null,
+                    callSyntax: [],
+                    stack: {}
+                };
 
+                let splitted = expression.split('=');
+                let right = splitted[1];
+
+                child.instanceName = splitted[0].trim().split(" ")[1];
+
+                words = right.match(/((?=\s*)\w+((\[\d+\])|(\[\d+:\d+\]))*)/g);
+
+                for (let i = 0; i < words.length; i++) {
+                    child.callSyntax.push(getVariableObj(obj, words[i]));
+                }
+
+                child.stack = parse(right);
+                obj.nodes.push(child);
                 break;
+
             case "moduleUsage":
+                child = {
+                    type: "moduleUsage",
+                    moduleName: null,
+                    instanceName: null,
+                    callSyntax: []
+                }
 
-                //TODO: probably insert child module JSON represntation into parent module
+                words = expression.match(/((?=\s*)\w+((\[\d+\])|(\[\d+:\d+\]))*)/g);
+                child.moduleName = words[0];
+                child.instanceName = words[1];
 
-                // let matchTemp = expression.match(/\w+/);
-                // let moduleUsed = matchTemp[0]; //syntax wil be correct so i can index without checking if not null
-                // let name = matchTemp[1];
+                let moduleIO = words.slice(2);
+                for (let i = 0; i < moduleIO.length; i++) {
+                    child.callSyntax.push(getVariableObj(obj, moduleIO[i]));
+                }
 
-                // otherModules.forEach(module => {
-                //     if (module.name == moduleUsed) {
-
-                //     }
-                // });
-                break;
-            default:
+                obj.nodes.push(child);
                 break;
         }
-
     }
+
+    return obj;
+}
+
+/**
+ * 
+ * @param {array} modules Array returned from generateNetwork function
+ */
+export function elaborateModules(modules) {
+    let elaboratedModules = [];
+    for (let i = 0; i < modules.length; i++) {
+        elaboratedModules.push(elaborateModuleObj(modules[i]));
+    }
+    return elaboratedModules;
 }
 
 //BEGIN CODE FROM STACK OVERFLOW
@@ -404,7 +474,7 @@ let lexer = new Lexer;
 lexer.addRule(/\s+/, function() {
     /* skip whitespace */
 });
-lexer.addRule(/[a-z]+/, function(lexeme) {
+lexer.addRule(/((?=\s*)\w+((\[\d+\])|(\[\d+:\d+\]))*)/, function(lexeme) {
     return lexeme; // symbols
 });
 //TODO: also capture: 1234'h1234
@@ -606,21 +676,21 @@ Parser.prototype.parse = function(input) {
     return output;
 };
 
-let parsedText = parse(`{
-    ~a & b & ~c & d,
-    (b & ~c & ~d) | (~a & ~b & (c | d)),
-    (~c & ~d) | (~b & c & d),
-    (~a & ~c & ~d) | (b & c & d) | (~b & c & ~d)
-}`);
-console.log("stack", parsedText)
+// let parsedText = parse(`{
+//     ~a & b & ~c & d,
+//     (b & ~c & ~d) | (~a & ~b & (c | d)),
+//     (~c & ~d) | (~b & c & d),
+//     (~a & ~c & ~d) | (b & c & d) | (~b & c & ~d)
+// }`);
+// console.log("stack", parsedText)
 
-let evaluatedStack = evaluateStack({
-    a: BitwiseLib.binaryToBitArray("0"),
-    b: BitwiseLib.binaryToBitArray("0"),
-    c: BitwiseLib.binaryToBitArray("0"),
-    d: BitwiseLib.binaryToBitArray("0"),
-}, parsedText);
+// let evaluatedStack = evaluateStack({
+//     a: BitwiseLib.binaryToBitArray("0"),
+//     b: BitwiseLib.binaryToBitArray("0"),
+//     c: BitwiseLib.binaryToBitArray("0"),
+//     d: BitwiseLib.binaryToBitArray("0"),
+// }, parsedText);
 
-console.log("evaluated stack", evaluatedStack)
+// console.log("evaluated stack", evaluatedStack)
 
-console.log(BitwiseLib.bitArrayToString(evaluatedStack))
+// console.log(BitwiseLib.bitArrayToString(evaluatedStack))
