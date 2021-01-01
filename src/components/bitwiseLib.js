@@ -24,6 +24,7 @@ export function binaryToBitArray(text) {
     return out;
 }
 
+
 /**
  * ex: 5'hFFF => converts hex to binary and makes array 5 bits wide
  * b: binary d: decimal o: ocatal h: hex
@@ -33,7 +34,7 @@ export function stringToBitArray(text) {
     //TODO: check if numbers are valid
     //TODO: implement things
 
-    let type = text.match(/(?<=\d+')[bdoh]/);
+    let type = text.match(/(?<=\d*')[bdoh]/);
     if (type) {
         switch (type[0]) {
             case "b":
@@ -61,6 +62,8 @@ export function bitArrayToString(array) {
     });
     return out;
 }
+
+
 
 const operators = {
     "~": function(a) { return !a; },
