@@ -66,7 +66,7 @@ export function stringToBitArray(text) {
     //TODO: check if numbers are valid
     //TODO: implement things
 
-    let type = text.match(/(?<=\d+')[bdoh]/);
+    let type = text.match(/(?<=\d*')[bdoh]/);
     if (type) {
         switch (type[0]) {
             case "b":
@@ -94,6 +94,8 @@ export function bitArrayToString(array) {
     });
     return out;
 }
+
+
 
 const operators = {
     "~": function(a) { return !a; },
