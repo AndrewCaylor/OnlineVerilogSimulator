@@ -45,12 +45,16 @@ function convertToBinary(x) {
 export function decimalToBitArray(text) {
     //if this number has anything other than these symbols,
     //it's not decimal ergo return null
-    let decimalArray = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    text.split("").forEach(char => {
-        if (!decimalArray.includes(char)) {
-            return null;
-        }
-    });
+
+    //this if tree is also stolen
+    if(text.match(/^-?\d+$/)){
+    //valid integer (positive or negative)
+    }else if(text.match(/^\d+\.\d+$/)){
+    //valid float
+    }else{
+        return null;
+    }
+    
     let number = parseInt(text);
     let binary = convertToBinary(number).toString();
     return binaryToBitArray(binary);
