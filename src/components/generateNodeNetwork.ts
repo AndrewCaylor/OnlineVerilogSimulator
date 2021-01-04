@@ -1,9 +1,37 @@
 /*eslint-disable*/
-
 var Lexer = require("lex");
 
-export function hi() {
-    alert("hi");
+interface Module {
+    name: string,
+    callSyntax: Array<IOSyntax>,
+    inputs: Array<parameterSyntax>,
+    outputs: Array<parameterSyntax>,
+    wires: Array<parameterSyntax>,
+    annotatedExpressions: []
+}
+
+interface parameterSyntax {
+    name: string,
+    bits: number
+}
+
+interface IOSyntax extends parameterSyntax {
+    type: "I" | "O"
+}
+
+interface annotatedExpression {
+    expression: string,
+    type: ENUM.ModuleDeclaration | ENUM.ModuleUsage | ENUM.Input | ENUM.Output | ENUM.Wire | ENUM.Assign | ENUM.Endmodule
+}
+
+enum ENUM {
+    ModuleDeclaration,
+    ModuleUsage,
+    Input,
+    Output,
+    Wire,
+    Assign,
+    Endmodule
 }
 
 export function isAssignStatement(text) {
@@ -16,50 +44,50 @@ export function isModuleUsage(text) {
 export function isModuleDeclaration(text) {
     return (
         (text.match(/module\s+\w+\((\s*\w+\s*,)*(\s*\w+\s*\))/g) || [])
-        .length == 1
+            .length == 1
     );
 }
 export function isWireDeclaration(text) {
     return (
         (text.match(/wire\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+$)/g) || [])
-        .length == 1
+            .length == 1
     );
 }
 export function isInputDeclaration(text) {
     return (
         (text.match(/input\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+$)/g) || [])
-        .length == 1
+            .length == 1
     );
 }
 export function isOutputDeclaration(text) {
     return (
         (text.match(/output\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+$)/g) || [])
-        .length == 1
+            .length == 1
     );
 }
 export function getExpressionType(text) {
     let type = null;
 
-    //not doing else if just incase
     if (isInputDeclaration(text)) {
-        type = "input";
-    } else if (isOutputDeclaration(text)) {
-        type = "output";
-    } else if (isWireDeclaration(text)) {
-        type = "wire";
-    } else if (isAssignStatement(text)) {
-        type = "assign";
-    } else if (isModuleDeclaration(text)) {
-        type = "moduleDeclaration";
+        type = ENUM.Input;
+    } 
+    else if (isOutputDeclaration(text)) {
+        type = ENUM.Output;
+    } 
+    else if (isWireDeclaration(text)) {
+        type = ENUM.Wire;
+    } 
+    else if (isAssignStatement(text)) {
+        type = ENUM.Assign;
+    } 
+    else if (isModuleDeclaration(text)) {
+        type = ENUM.ModuleDeclaration;
     }
-
-    //module usage will detect module declaration
-    if (!type) {
-        if (isModuleUsage(text)) {
-            type = "moduleUsage";
-        } else if (text == "endmodule") {
-            type = "endmodule";
-        }
+    else if (isModuleUsage(text)) {
+        type = ENUM.ModuleUsage;
+    }
+    else if (text == "endmodule"){
+        type = ENUM.Endmodule;
     }
 
     return type;
@@ -67,25 +95,17 @@ export function getExpressionType(text) {
 
 export function generateNetwork(text) {
 
-    let lines = text.split("\n");
+    //removes single line comments
+    text = text.replace(/(\/\/).*/g, "");
+    //removes multiline line comments
+    text = text.replace(/(\/\*)(.|\n)*(\*\/)/g, "");
+    text = text.replace(/\n/g, " ");
 
-    let decommentedLines = [];
-    lines.forEach((line) => {
-        let temp = line.match("^([^//])+"); //matches content before comments
-        if (temp) {
-            temp = temp[0].trim();
-            if (temp.length != 0) {
-                decommentedLines.push(temp);
-            }
-        }
-    });
-
-
-    text = decommentedLines.join("");
     let annotatedExpressions = []; //TODO: should also include information about the error
     let expressions = text.replace(/endmodule/g, "endmodule;").split(";"); //make sure there is a ; at every line and the split
 
     expressions.forEach((expression) => {
+        expression = expression.trim();
         annotatedExpressions.push({
             "expression": expression,
             type: getExpressionType(expression)
@@ -104,7 +124,7 @@ export function generateNetwork(text) {
     for (let i = 0; i < annotatedExpressions.length; i++) {
         switch (annotatedExpressions[i].type) {
 
-            case "moduleDeclaration":
+            case ENUM.ModuleDeclaration:
                 //start collecting lines for new module
                 if (state == null) {
                     state = "parsingModule";
@@ -118,7 +138,7 @@ export function generateNetwork(text) {
                 }
                 break;
 
-            case "endmodule":
+            case ENUM.Endmodule:
                 //generate new module using the previous lines
                 if (state == "parsingModule") {
                     modules.push(generateBaseModuleObj(moduleContent));
@@ -175,7 +195,6 @@ export function generateNetwork(text) {
  * @param {string} variableName asdf or asdf[1:0] or asdf[0]
  */
 function getVariableObj(baseModuleObj, variableText) {
-    console.log(baseModuleObj, variableText)
 
     let splitted = variableText.split(/\[|\]/g);
 
@@ -189,8 +208,6 @@ function getVariableObj(baseModuleObj, variableText) {
     if (variableText.match(/\[/)) {
         //var1[3:0] => [3,0]
         let numbers = splitted[1].split(/:/g);
-
-        console.log(numbers)
 
         if (numbers.length == 1) {
             parameterObj.endBit = numbers[0];
@@ -294,7 +311,7 @@ export function generateBaseModuleObj(annotatedExpressions) {
         let temp = annotatedExpressions[i].expression;
 
         switch (annotatedExpressions[i].type) {
-            case "input":
+            case ENUM.Input:
                 length = getNumBits(temp);
                 vars = getVariables(temp, 6);
 
@@ -305,7 +322,7 @@ export function generateBaseModuleObj(annotatedExpressions) {
                     });
                 });
                 break;
-            case "output":
+            case ENUM.Output:
                 length = getNumBits(temp);
                 vars = getVariables(temp, 7);
 
@@ -317,7 +334,7 @@ export function generateBaseModuleObj(annotatedExpressions) {
                 });
                 break;
 
-            case "wire":
+            case ENUM.Wire:
                 length = getNumBits(temp);
                 vars = getVariables(temp, 5);
 
@@ -406,9 +423,9 @@ function elaborateModuleObj(obj) {
         let child, words;
 
         switch (annotatedExpressions[i].type) {
-            case "assign":
+            case ENUM.Assign:
                 child = {
-                    type: "assign",
+                    type: annotatedExpressions[i].type,
                     instanceName: null,
                     callSyntax: [],
                     stack: {}
@@ -429,9 +446,9 @@ function elaborateModuleObj(obj) {
                 obj.nodes.push(child);
                 break;
 
-            case "moduleUsage":
+            case ENUM.ModuleUsage:
                 child = {
-                    type: "moduleUsage",
+                    type: annotatedExpressions[i].type,
                     moduleName: null,
                     instanceName: null,
                     callSyntax: []
@@ -471,20 +488,20 @@ export function elaborateModules(modules) {
 
 //creates token array
 let lexer = new Lexer;
-lexer.addRule(/\s+/, function() {
+lexer.addRule(/\s+/, function () {
     /* skip whitespace */
 });
-lexer.addRule(/((?=\s*)\w+((\[\d+\])|(\[\d+:\d+\]))*)/, function(lexeme) {
+lexer.addRule(/((?=\s*)\w+((\[\d+\])|(\[\d+:\d+\]))*)/, function (lexeme) {
     return lexeme; // symbols
 });
 //TODO: also capture: 1234'h1234
 //b: binary d: decimal o: ocatal h: hex
 //ex: 5'hFFF => represents bit array 5 bits wide
-lexer.addRule(/('b[01])|(\d+)/, function(lexeme) {
+lexer.addRule(/('b[01])|(\d+)/, function (lexeme) {
     return lexeme; //gets numbers and "bits"
 });
 //TODO: add support for correct operators
-lexer.addRule(/(~?[\^\&\|])|[\,\(\)\{\}]|(<<)|(>>)|~/, function(lexeme) {
+lexer.addRule(/(~?[\^\&\|])|[\,\(\)\{\}]|(<<)|(>>)|~/, function (lexeme) {
     return lexeme; // punctuation (i.e. "(", "&", "|", "}")
 });
 //TODO: read more about lexer to figure out wtf this is for
@@ -523,7 +540,7 @@ function parse(input) {
 
 //END CODE FROM STACK OVERFLOW
 
-import * as BitwiseLib from ".//bitwiseLib";
+import * as BitwiseLib from "./bitwiseLib";
 
 /**
  * 
@@ -540,7 +557,7 @@ function evaluateStack(context, tokens) {
         switch (token) {
             case "~":
                 a = stack.pop();
-                stack.push(BitwiseLib.doOperation(token, a));
+                stack.push(BitwiseLib.doOperation(token, a, null));
                 break;
 
             case "&":
@@ -549,8 +566,8 @@ function evaluateStack(context, tokens) {
             case "~|":
             case "^":
             case "~^":
-                //TODO: enable left and right shift by bit arrays
-                //converting bit arrays to number
+            //TODO: enable left and right shift by bit arrays
+            //converting bit arrays to number
             case ">>":
             case "<<":
             case ",":
@@ -593,7 +610,7 @@ function Parser(table) {
  * 
  * @param {Array} input array of tokens
  */
-Parser.prototype.parse = function(input) {
+Parser.prototype.parse = function (input) {
     var length = input.length,
         table = this.table,
         output = [],

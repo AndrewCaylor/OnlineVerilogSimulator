@@ -35,7 +35,7 @@ import { highlight, languages } from "prismjs/components/prism-core";
 import "prismjs/components/prism-verilog";
 import "prismjs/themes/prism-tomorrow.css"; // import syntax highlighting styles
 
-import * as util from ".//generateNodeNetwork";
+import * as util from ".//generateNodeNetwork.ts";
 
 export default {
   components: { CompileLogic, PrismEditor },
@@ -61,10 +61,18 @@ export default {
   mounted() {
     this.verilogCode = window.localStorage.getItem("default");
 
+    var d = new Date();
+    var start = d.getTime();
+
     let net = util.generateNetwork(this.verilogCode);
     console.log(net)
     let elaborated1 = util.elaborateModules(net);
     console.log(elaborated1)
+
+    var e = new Date();
+    var end = e.getTime();
+
+    console.log("time to compile: ", end-start); //approx 12ms
   },
 };
 </script>

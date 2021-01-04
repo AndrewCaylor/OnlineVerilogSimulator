@@ -18,14 +18,21 @@
     "expr-eval": "^2.0.2",
     "lex": "^1.7.9",
     "vue": "^2.6.12",
+    "vue-class-component": "^7.2.3",
     "vue-prism-editor": "^1.2.2",
-    "vue-prismjs": "^1.2.0"
+    "vue-prismjs": "^1.2.0",
+    "vue-property-decorator": "^8.4.2"
   },
   "devDependencies": {
+    "@types/jest": "^24.0.19",
+    "@typescript-eslint/eslint-plugin": "^2.33.0",
+    "@typescript-eslint/parser": "^2.33.0",
     "@vue/cli-plugin-babel": "~4.5.0",
     "@vue/cli-plugin-eslint": "~4.5.0",
+    "@vue/cli-plugin-typescript": "~4.5.0",
     "@vue/cli-plugin-unit-jest": "~4.5.0",
     "@vue/cli-service": "~4.5.0",
+    "@vue/eslint-config-typescript": "^5.0.2",
     "@vue/test-utils": "^1.0.3",
     "babel-eslint": "^10.1.0",
     "eslint": "^6.7.2",
@@ -33,6 +40,7 @@
     "node-sass": "^5.0.0",
     "prismjs": "^1.22.0",
     "sass-loader": "^10.1.0",
+    "typescript": "~3.9.3",
     "vue-template-compiler": "^2.6.11"
   },
   "eslintConfig": {
@@ -42,10 +50,11 @@
     },
     "extends": [
       "plugin:vue/essential",
-      "eslint:recommended"
+      "eslint:recommended",
+      "@vue/typescript"
     ],
     "parserOptions": {
-      "parser": "babel-eslint"
+      "parser": "@typescript-eslint/parser"
     },
     "rules": {},
     "overrides": [
