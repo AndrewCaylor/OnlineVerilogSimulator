@@ -3,25 +3,36 @@ var Lexer = require("lex");
 
 interface Module {
     name: string,
-    callSyntax: Array<IOSyntax>,
-    inputs: Array<parameterSyntax>,
-    outputs: Array<parameterSyntax>,
-    wires: Array<parameterSyntax>,
-    annotatedExpressions: []
+    callSyntax: IOSyntax[],
+    inputs: ParameterSyntax[],
+    outputs: ParameterSyntax[],
+    wires: ParameterSyntax[],
+    annotatedExpressions: AnnotatedExpression[],
+    nodes: Node[]
 }
 
-interface parameterSyntax {
+interface ParameterSyntax {
     name: string,
-    bits: number
+    beginBit: number,
+    endBit: number
 }
 
-interface IOSyntax extends parameterSyntax {
-    type: "I" | "O"
+type IO = "I" | "O" | null;
+interface IOSyntax extends ParameterSyntax {
+    type: IO
 }
 
-interface annotatedExpression {
+interface AnnotatedExpression {
     expression: string,
-    type: ENUM.ModuleDeclaration | ENUM.ModuleUsage | ENUM.Input | ENUM.Output | ENUM.Wire | ENUM.Assign | ENUM.Endmodule
+    type: ExpressionType
+}
+
+interface Node {
+    type: ExpressionType;
+    instanceName: string,
+    callSyntax: IOSyntax[],
+    stack?: string[],
+    moduleName?: string
 }
 
 enum ENUM {
@@ -32,6 +43,18 @@ enum ENUM {
     Wire,
     Assign,
     Endmodule
+}
+
+//probably a better way to do this
+type ExpressionType = ENUM.ModuleDeclaration | ENUM.ModuleUsage | ENUM.Input | ENUM.Output | ENUM.Wire | ENUM.Assign | ENUM.Endmodule | null;
+
+interface Error {
+    data: any,
+    error: string
+}
+
+interface Dict {
+    [name: string]: number
 }
 
 export function isAssignStatement(text) {
@@ -70,30 +93,34 @@ export function getExpressionType(text) {
 
     if (isInputDeclaration(text)) {
         type = ENUM.Input;
-    } 
+    }
     else if (isOutputDeclaration(text)) {
         type = ENUM.Output;
-    } 
+    }
     else if (isWireDeclaration(text)) {
         type = ENUM.Wire;
-    } 
+    }
     else if (isAssignStatement(text)) {
         type = ENUM.Assign;
-    } 
+    }
     else if (isModuleDeclaration(text)) {
         type = ENUM.ModuleDeclaration;
     }
     else if (isModuleUsage(text)) {
         type = ENUM.ModuleUsage;
     }
-    else if (text == "endmodule"){
+    else if (text == "endmodule") {
         type = ENUM.Endmodule;
     }
 
     return type;
 }
 
-export function generateNetwork(text) {
+/**
+ * 
+ * @param text all the code the user wants to compile
+ */
+export function getBaseModules(text: string) {
 
     //removes single line comments
     text = text.replace(/(\/\/).*/g, "");
@@ -101,8 +128,8 @@ export function generateNetwork(text) {
     text = text.replace(/(\/\*)(.|\n)*(\*\/)/g, "");
     text = text.replace(/\n/g, " ");
 
-    let annotatedExpressions = []; //TODO: should also include information about the error
-    let expressions = text.replace(/endmodule/g, "endmodule;").split(";"); //make sure there is a ; at every line and the split
+    let annotatedExpressions: AnnotatedExpression[] = []; //TODO: should also include information about the error
+    let expressions: string[] = text.replace(/endmodule/g, "endmodule;").split(";"); //make sure there is a ; at every line and the split
 
     expressions.forEach((expression) => {
         expression = expression.trim();
@@ -113,12 +140,12 @@ export function generateNetwork(text) {
     });
 
     let state = null;
-    let moduleContent = [];
-    let modules = [];
+    let moduleContent: AnnotatedExpression[] = [];
+    let modules: Module[] = [];
 
-    let errors = [];
+    let errors: Error[] = [];
 
-    //TODO: collect info about all line failures and not just return first one
+    //TODO: collect info about all line failures and not just return first one (or not?)
 
     //state machine for checking validity of program structure/giving data to function to create modules
     for (let i = 0; i < annotatedExpressions.length; i++) {
@@ -167,25 +194,6 @@ export function generateNetwork(text) {
         }
     }
 
-    // let reg = /(module|endmodule)\s+/g;
-
-    // let modulesText = text.split(reg);
-    // let modules = [];
-    // // let elaboratedModules = [];
-
-    // modulesText.forEach((ele) => {
-    //   if (ele != "module" && ele != "") {
-    //     //filtering cuz splitting
-    //     modules.push(this.generateBaseModuleObj(ele));
-    //   }
-    // });
-
-    // for (let i = 0; i < modules.length; i++) {
-    //   elaboratedModules[i] = this.elaborateModuleObj(
-    //     modulesText[i],
-    //     modules[i]
-    //   );
-    // }
     return modules;
 }
 
@@ -194,11 +202,11 @@ export function generateNetwork(text) {
  * @param {object} baseModuleObj 
  * @param {string} variableName asdf or asdf[1:0] or asdf[0]
  */
-function getVariableObj(baseModuleObj, variableText) {
+function getVariableObj(baseModuleObj: Module, variableText: string) {
 
     let splitted = variableText.split(/\[|\]/g);
 
-    let parameterObj = {
+    let parameterObj: IOSyntax = {
         name: splitted[0],
         beginBit: null,
         endBit: null,
@@ -210,27 +218,30 @@ function getVariableObj(baseModuleObj, variableText) {
         let numbers = splitted[1].split(/:/g);
 
         if (numbers.length == 1) {
-            parameterObj.endBit = numbers[0];
-            parameterObj.beginBit = numbers[0];
+            parameterObj.endBit = parseInt(numbers[0]);
+            parameterObj.beginBit = parameterObj.endBit;
         } else if (numbers.length == 2) {
-            parameterObj.endBit = numbers[0];
-            parameterObj.beginBit = numbers[1];
+            parameterObj.endBit = parseInt(numbers[0]);
+            parameterObj.beginBit = parseInt(numbers[1]);
         } else {
             return null;
         }
+
         let variableObj = getObj(baseModuleObj, parameterObj.name);
-        parameterObj.type = variableObj.type; //can be undefined
+        //if parameter syntax, will be undefined
+        parameterObj.type = variableObj;
     } else {
         let variableObj = getObj(baseModuleObj, parameterObj.name);
 
-        parameterObj.type = variableObj.type; //can be undefined
+        //if parameter syntax, will be undefined
+        parameterObj.type = variableObj.type;
         parameterObj.beginBit = 0;
         parameterObj.endBit = variableObj.bits - 1;
     }
 
     return parameterObj;
 
-    function getObj(baseModuleObj, variableName) {
+    function getObj(baseModuleObj: Module, variableName: string): any { //type is ParameterSyntax | IOSyntax
         for (let i = 0; i < baseModuleObj.callSyntax.length; i++) {
             let element = baseModuleObj.callSyntax[i];
             if (element.name == variableName) {
@@ -247,28 +258,12 @@ function getVariableObj(baseModuleObj, variableText) {
 }
 
 /**
- *  Structure of base module:
-    {
-      name: <string>,
-      callSyntax: [
-        {name: <string>, bits: <int>, type: "I" or "O"}, ...
-      ],
-      inputs: [
-        {name: <string>, bits: <int>}, ...
-      ],
-      outputs: [
-        {name: <string>, bits: <int>}, ...
-      ],
-      wires: [
-        {name: <string>, bits: <int>}, ...
-      ],
-      annotatedExpressions: []
-    }
- * @param {Array} annotatedExpressions 
+ *  
+ * @param annotatedExpressions 
  */
-export function generateBaseModuleObj(annotatedExpressions) {
+export function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[]) {
 
-    let obj = {
+    let obj: Module = {
         name: null,
         callSyntax: [],
         inputs: [],
@@ -279,79 +274,69 @@ export function generateBaseModuleObj(annotatedExpressions) {
     };
 
     obj.annotatedExpressions = annotatedExpressions;
-
     obj.name = annotatedExpressions[0].expression.match(/\w+/g)[1]; //get second word
 
-    function getNumBits(expressionText) {
+    function getBits(expressionText: string): number[] {
         //get area between brackets (need eslint disable cuz escape chars)
         //eslint-disable-next-line
         let split1 = expressionText.split(/[\[\]]/g);
 
         //might not be brackets
         if (split1.length == 1) {
-            return 1;
+            return [0, 0];
         } else {
-            return parseInt(split1[1].split(":")[0]) + 1;
+            let splitted = split1[1].split(":");
+            return [parseInt(splitted[1]), parseInt(splitted[0])];
         }
     }
 
-    function getVariables(expressionText, len) {
-        let right = expressionText.substring(len); //removes the input/output/wire
+    function getVariables(expressionText: string, len: number): string[] {
+        //only get after brackets if there are any
+        //removes the input/output/wire
+        let right = expressionText.substring(len).split("]");
 
-        right = right.split("]"); //only get after brackets if there are any
-        right = right.length > 1 ? right[right.length - 1] : right[0];
-        right = right.replace(/\s/g, ""); //remove whitespace
+        let rightStr = right.length > 1 ? right[right.length - 1] : right[0];
+        rightStr = rightStr.replace(/\s/g, ""); //remove whitespace
 
-        return right.split(",");
+        return rightStr.split(",");
     }
 
-    let length;
-    let vars;
+    let bits: number[];
+    let vars: string[];
     for (let i = 1; i < annotatedExpressions.length; i++) {
-        let temp = annotatedExpressions[i].expression;
+        let exprLength: number = null;
 
         switch (annotatedExpressions[i].type) {
             case ENUM.Input:
-                length = getNumBits(temp);
-                vars = getVariables(temp, 6);
-
-                vars.forEach((ele) => {
-                    obj.inputs.push({
-                        name: ele,
-                        bits: length
-                    });
-                });
+                exprLength = 6;
                 break;
-            case ENUM.Output:
-                length = getNumBits(temp);
-                vars = getVariables(temp, 7);
 
-                vars.forEach((ele) => {
-                    obj.outputs.push({
-                        name: ele,
-                        bits: length
-                    });
-                });
+            case ENUM.Output:
+                exprLength = 7;
                 break;
 
             case ENUM.Wire:
-                length = getNumBits(temp);
-                vars = getVariables(temp, 5);
-
-                vars.forEach((ele) => {
-                    obj.wires.push({
-                        name: ele,
-                        bits: length,
-                    });
-                });
+                exprLength = 5;
                 break;
         }
+
+        let temp = annotatedExpressions[i].expression;
+        bits = getBits(temp);
+        vars = getVariables(temp, exprLength);
+
+        vars.forEach((ele) => {
+            obj.outputs.push({
+                name: ele,
+                beginBit: bits[0],
+                endBit: bits[1]
+            });
+        });
     }
 
     //Gets the first experssion and only gets stuff between parentheses
     //Then it replaces the whitespace with nothing
     //then it splits over the commas to get the variable names of the inputs and outputs
-    let insNouts = annotatedExpressions[0].expression
+    let insNouts: string[] = annotatedExpressions[0].expression
         .split(/[()]/g)[1]
         .replace(/\s/g, "")
         .split(",");
@@ -361,10 +346,11 @@ export function generateBaseModuleObj(annotatedExpressions) {
         for (let i = 0; i < obj.inputs.length; i++) {
             let objElement = obj.inputs[i].name;
             if (objElement == element) {
-                //TODO: check for dupes
+                //TODO: check for duplicate variable names and return an error
                 obj.callSyntax.push({
                     name: element,
-                    bits: obj.inputs[i].bits,
+                    beginBit: obj.inputs[i].beginBit,
+                    endBit: obj.inputs[i].endBit,
                     type: "I"
                 });
             }
@@ -376,7 +362,8 @@ export function generateBaseModuleObj(annotatedExpressions) {
                 //TODO: check for dupes
                 obj.callSyntax.push({
                     name: element,
-                    bits: obj.outputs[i].bits,
+                    beginBit: obj.inputs[i].beginBit,
+                    endBit: obj.inputs[i].endBit,
                     type: "O"
                 });
             }
@@ -392,45 +379,25 @@ export function generateBaseModuleObj(annotatedExpressions) {
 }
 
 /**
- * Things added to baseModuleObj:
-    nodes:[
-        {
-            type: "moduleUsage", moduleName: <string>, instanceName: <string>,
-            callSyntax: [{ name: <string>, beginBit: <int>, endBit: <int>, type: I/O/null }, ...]
-        }, 
-        {
-            type: "assign", instanceName: <string>, stack: <array>,
-            callSyntax: [{ name: <string>, beginBit: <int>, endBit: <int>, type: I/O/null }, ...]
-        },...
-      ]
  * 
- * @param {object} obj module object created using generateBaseModuleObj
- * @param {array} allModules all the modules declared in the project
+ * @param obj module object created using generateBaseModuleObj
  */
-function elaborateModuleObj(obj) {
-
-    // let otherModules = [];
-
-    // allModules.forEach(module => {
-    //     if (module.name != obj.name) otherModules.push(module);
-    // });
+function elaborateModuleObj(obj: Module): Module {
 
     let annotatedExpressions = obj.annotatedExpressions; //shorthand
 
     //for each expression find the modules/assign statements
     for (let i = 1; i < annotatedExpressions.length; i++) {
         let expression = annotatedExpressions[i].expression;
-        let child, words;
+        let child: Node = {
+            type: annotatedExpressions[i].type,
+            instanceName: null,
+            callSyntax: []
+        }
+        let words;
 
         switch (annotatedExpressions[i].type) {
             case ENUM.Assign:
-                child = {
-                    type: annotatedExpressions[i].type,
-                    instanceName: null,
-                    callSyntax: [],
-                    stack: {}
-                };
-
                 let splitted = expression.split('=');
                 let right = splitted[1];
 
@@ -447,13 +414,6 @@ function elaborateModuleObj(obj) {
                 break;
 
             case ENUM.ModuleUsage:
-                child = {
-                    type: annotatedExpressions[i].type,
-                    moduleName: null,
-                    instanceName: null,
-                    callSyntax: []
-                }
-
                 words = expression.match(/((?=\s*)\w+((\[\d+\])|(\[\d+:\d+\]))*)/g);
                 child.moduleName = words[0];
                 child.instanceName = words[1];
@@ -473,9 +433,9 @@ function elaborateModuleObj(obj) {
 
 /**
  * 
- * @param {array} modules Array returned from generateNetwork function
+ * @param modules Array returned from generateNetwork function
  */
-export function elaborateModules(modules) {
+export function elaborateModules(modules: Module[]): Module[] {
     let elaboratedModules = [];
     for (let i = 0; i < modules.length; i++) {
         elaboratedModules.push(elaborateModuleObj(modules[i]));
@@ -528,9 +488,9 @@ let parser = new Parser({
 
 /**
  * outputs text in postfix "stack" notation
- * @param { string } input 
+ * @param input 
  */
-function parse(input) {
+function parse(input: string): string[] {
     lexer.setInput(input);
     let tokens = [],
         token;
@@ -547,7 +507,7 @@ import * as BitwiseLib from "./bitwiseLib";
  * @param {Object} context in form: {var1: value, var2: value)
  * @param {Array} tokens postfix notation stack
  */
-function evaluateStack(context, tokens) {
+function evaluateStack(context: Dict, tokens: string[]): boolean[] {
     let stack = [];
 
     for (let i = 0; i < tokens.length; i++) {
@@ -605,9 +565,9 @@ function Parser(table) {
     this.table = table;
 }
 
-//DONT CHANGE VAR TO LET
 /**
- * 
+ * DONT CHANGE VAR TO LET
+ * DONT TOUCH THIS
  * @param {Array} input array of tokens
  */
 Parser.prototype.parse = function (input) {

@@ -50,10 +50,6 @@ export default {
     };
   },
   methods: {
-    generateNetwork() {
-      util.generateNetwork(this.verilogCode);
-    },
-
     highlighter(code) {
       return highlight(code, languages.verilog); //returns html
     },
@@ -64,7 +60,7 @@ export default {
     var d = new Date();
     var start = d.getTime();
 
-    let net = util.generateNetwork(this.verilogCode);
+    let net = util.getBaseModules(this.verilogCode);
     console.log(net)
     let elaborated1 = util.elaborateModules(net);
     console.log(elaborated1)
