@@ -5,7 +5,7 @@
         <button
           type="button"
           class="btn btn-secondary"
-          v-on:click="generateNetwork()"
+          v-on:click="compile()"
         >
           generate network
         </button>
@@ -19,7 +19,7 @@
     </div>
 
     <p>
-      {{ generateNetwork() }}
+      {{ compile() }}
     </p>
     <CompileLogic />
   </div>
@@ -53,6 +53,9 @@ export default {
     highlighter(code) {
       return highlight(code, languages.verilog); //returns html
     },
+    compile(){
+
+    }
   },
   mounted() {
     this.verilogCode = window.localStorage.getItem("default");

@@ -277,8 +277,7 @@ export function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[
     obj.name = annotatedExpressions[0].expression.match(/\w+/g)[1]; //get second word
 
     function getBits(expressionText: string): number[] {
-        //get area between brackets (need eslint disable cuz escape chars)
-        //eslint-disable-next-line
+        //get area between brackets
         let split1 = expressionText.split(/[\[\]]/g);
 
         //might not be brackets
@@ -290,12 +289,12 @@ export function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[
         }
     }
 
-    function getVariables(expressionText: string, len: number): string[] {
+    function getVariables(expression: string): string[] {
         //only get after brackets if there are any
         //removes the input/output/wire
-        let right = expressionText.substring(len).split("]");
+        let right = expression.replace(/((input)|(output)|(wire))\s+/, "").split("]");
 
-        let rightStr = right.length > 1 ? right[right.length - 1] : right[0];
+        let rightStr = right[right.length - 1];
         rightStr = rightStr.replace(/\s/g, ""); //remove whitespace
 
         return rightStr.split(",");
@@ -304,33 +303,32 @@ export function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[
     let bits: number[];
     let vars: string[];
     for (let i = 1; i < annotatedExpressions.length; i++) {
-        let exprLength: number = null;
-
-        switch (annotatedExpressions[i].type) {
-            case ENUM.Input:
-                exprLength = 6;
-                break;
-
-            case ENUM.Output:
-                exprLength = 7;
-                break;
-
-            case ENUM.Wire:
-                exprLength = 5;
-                break;
-        }
-
         let temp = annotatedExpressions[i].expression;
         bits = getBits(temp);
-        vars = getVariables(temp, exprLength);
+        vars = getVariables(temp);
 
+        let tempArr = [];
         vars.forEach((ele) => {
-            obj.outputs.push({
+            tempArr.push({
                 name: ele,
                 beginBit: bits[0],
                 endBit: bits[1]
             });
         });
+
+        switch (annotatedExpressions[i].type) {
+            case ENUM.Input:
+                obj.inputs = obj.inputs.concat(tempArr);
+                break;
+
+            case ENUM.Output:
+                obj.outputs = obj.outputs.concat(tempArr);
+                break;
+
+            case ENUM.Wire:
+                obj.wires = obj.wires.concat(tempArr);
+                break;
+        }
     }
 
     //Gets the first experssion and only gets stuff between parentheses
@@ -341,38 +339,26 @@ export function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[
         .replace(/\s/g, "")
         .split(",");
 
-    //
-    insNouts.forEach((element) => {
-        for (let i = 0; i < obj.inputs.length; i++) {
-            let objElement = obj.inputs[i].name;
-            if (objElement == element) {
-                //TODO: check for duplicate variable names and return an error
-                obj.callSyntax.push({
-                    name: element,
-                    beginBit: obj.inputs[i].beginBit,
-                    endBit: obj.inputs[i].endBit,
-                    type: "I"
-                });
-            }
-        }
-
-        for (let i = 0; i < obj.outputs.length; i++) {
-            let objElement = obj.outputs[i].name;
-            if (objElement == element) {
-                //TODO: check for dupes
-                obj.callSyntax.push({
-                    name: element,
-                    beginBit: obj.inputs[i].beginBit,
-                    endBit: obj.inputs[i].endBit,
-                    type: "O"
-                });
-            }
-        }
-
+    obj.inputs.forEach(parameter => {
         //TODO: check that every in/out has been assigned
+        obj.callSyntax.push({
+            name: parameter.name,
+            beginBit: parameter.beginBit,
+            endBit: parameter.endBit,
+            type: "I"
+        });
     });
 
-    //TODO: check that the inputs declared and inputs found match
+    obj.outputs.forEach(parameter => {
+        //TODO: check that every in/out has been assigned
+        obj.callSyntax.push({
+            name: parameter.name,
+            beginBit: parameter.beginBit,
+            endBit: parameter.endBit,
+            type: "O"
+        });
+    });
+    
     //check that there are no dupes
 
     return obj;
