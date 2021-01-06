@@ -2,11 +2,7 @@
   <div class="main">
     <div>
       <div style="padding-bottom: 1em">
-        <button
-          type="button"
-          class="btn btn-secondary"
-          v-on:click="compile()"
-        >
+        <button type="button" class="btn btn-secondary" v-on:click="compile()">
           generate network
         </button>
       </div>
@@ -18,9 +14,6 @@
       ></prism-editor>
     </div>
 
-    <p>
-      {{ compile() }}
-    </p>
     <CompileLogic />
   </div>
 </template>
@@ -53,25 +46,23 @@ export default {
     highlighter(code) {
       return highlight(code, languages.verilog); //returns html
     },
-    compile(){
+    compile() {
+      var d = new Date();
+      var start = d.getTime();
 
+      let net = util.getBaseModules(this.verilogCode);
+      let elaborated1 = util.elaborateModules(net);
+      console.log(elaborated1);
+
+      var e = new Date();
+      var end = e.getTime();
+
+      console.log("time to compile: ", end - start); //approx 12ms
     }
   },
   mounted() {
     this.verilogCode = window.localStorage.getItem("default");
-
-    var d = new Date();
-    var start = d.getTime();
-
-    let net = util.getBaseModules(this.verilogCode);
-    console.log(net)
-    let elaborated1 = util.elaborateModules(net);
-    console.log(elaborated1)
-
-    var e = new Date();
-    var end = e.getTime();
-
-    console.log("time to compile: ", end-start); //approx 12ms
+    this.compile();
   },
 };
 </script>

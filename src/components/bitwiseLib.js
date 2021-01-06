@@ -192,3 +192,29 @@ export function doOperation(operator, a, b) {
             return null;
     }
 }
+
+/**
+ * Gets what bitwise operator the module name represents
+ * @param {string} textNotation 
+ */
+export function getBitwiseNotation(textNotation) {
+    switch (textNotation) {
+        case "not":
+            return "~";
+        case "and":
+            return "&";
+        case "nand":
+            return "~&";
+        case "or":
+            return "|";
+        case "nor":
+            return "~|";
+        case "xor":
+            return "^";
+        case "xnor":
+            return "~^";
+        default:
+            //will return null if the name is not a primitive module
+            return null;
+    }
+}
