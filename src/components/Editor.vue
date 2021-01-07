@@ -51,7 +51,7 @@ export default {
       var start = d.getTime();
 
       let net = util.getBaseModules(this.verilogCode);
-      let elaborated1 = util.elaborateModules(net);
+      let elaborated1 = util.elaborateModuleDict(net);
       console.log(elaborated1);
 
       var e = new Date();
