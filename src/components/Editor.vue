@@ -47,18 +47,30 @@ export default {
       return highlight(code, languages.verilog); //returns html
     },
     compile() {
-      var d = new Date();
-      var start = d.getTime();
+      // var d = new Date();
+      // var start = d.getTime();
 
       let net = util.getBaseModules(this.verilogCode);
+
+      console.log(net);
+
       let elaborated1 = util.elaborateModuleDict(net);
-      console.log(elaborated1);
 
-      var e = new Date();
-      var end = e.getTime();
+      console.log(elaborated1)
 
-      console.log("time to compile: ", end - start); //approx 12ms
-    }
+      // net = JSON.parse(JSON.stringify(net));
+
+      // console.log(JSON.stringify(net["ssd"].callSyntax[1]));
+      // console.log(net["ssd"].callSyntax[1]);
+      // console.log(net)
+      // let elaborated1 = util.elaborateModuleDict(net);
+      // console.log(elaborated1);
+
+      // var e = new Date();
+      // var end = e.getTime();
+
+      // console.log("time to compile: ", end - start); //approx 12ms
+    },
   },
   mounted() {
     this.verilogCode = window.localStorage.getItem("default");

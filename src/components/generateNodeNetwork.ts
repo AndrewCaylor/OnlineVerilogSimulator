@@ -71,16 +71,19 @@ export function getExpressionType(text) {
 }
 
 /**
- * 
+ * TODO: do something with errors
  * @param text all the code the user wants to compile
  */
-export function getBaseModules(text: string) {
+export function getBaseModules(text: string): ModuleDict | any {
 
     //removes single line comments
     text = text.replace(/(\/\/).*/g, "");
     //removes multiline line comments
     text = text.replace(/(\/\*)(.|\n)*(\*\/)/g, "");
     text = text.replace(/\n/g, " ");
+    if(true){
+        text = text.replace(/\s+/," ")
+    }
 
     let annotatedExpressions: AnnotatedExpression[] = []; //TODO: should also include information about the error
     let expressions: string[] = text.replace(/endmodule/g, "endmodule;").split(";"); //make sure there is a ; at every line and the split
@@ -122,7 +125,7 @@ export function getBaseModules(text: string) {
             case ENUM.Endmodule:
                 //generate new module using the previous lines
                 if (state == "parsingModule") {
-                    let moduleObj = generateBaseModuleObj(moduleContent)
+                    let moduleObj = generateBaseModuleObj(moduleContent);
                     moduleDict[moduleObj.name] = moduleObj;
                     moduleContent = [];
                     state = null;
@@ -157,7 +160,7 @@ export function getBaseModules(text: string) {
  *  
  * @param annotatedExpressions 
  */
-export function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[]) {
+function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[]) {
 
     let obj: Module = {
         name: null,
@@ -238,22 +241,14 @@ export function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[
 
     obj.inputs.forEach(parameter => {
         //TODO: check that every in/out has been assigned
-        obj.callSyntax.push({
-            name: parameter.name,
-            beginBit: parameter.beginBit,
-            endBit: parameter.endBit,
-            type: "I"
-        });
+        parameter.type = "I";
+        obj.callSyntax.push(parameter);
     });
 
     obj.outputs.forEach(parameter => {
         //TODO: check that every in/out has been assigned
-        obj.callSyntax.push({
-            name: parameter.name,
-            beginBit: parameter.beginBit,
-            endBit: parameter.endBit,
-            type: "O"
-        });
+        parameter.type = "O";
+        obj.callSyntax.push(parameter);
     });
 
     //check that there are no dupes
@@ -269,7 +264,7 @@ export function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[
  */
 function getVariableObj(baseModuleObj: Module, variableText: string) {
 
-    return getObj(baseModuleObj, variableText);
+    return clone(getObj(baseModuleObj, variableText));
 
     function getObj(baseModuleObj: Module, variableName: string): ParameterSyntax { //type is ParameterSyntax | IOSyntax
         for (let i = 0; i < baseModuleObj.callSyntax.length; i++) {
@@ -294,10 +289,12 @@ function getVariableObj(baseModuleObj: Module, variableText: string) {
 function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
 
     let annotatedExpressions = obj.annotatedExpressions; //shorthand
+    // console.log("MODULE", obj.name)
+
 
     //for each expression find the modules/assign statements
     for (let i = 1; i < annotatedExpressions.length; i++) {
-        let expression = annotatedExpressions[i].expression;
+        const expression = annotatedExpressions[i].expression;
 
         let node: Node = {
             type: annotatedExpressions[i].type,
@@ -311,19 +308,12 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
         of each of the parameters used in the node. 
         I/O denotes whether the parameters is an I/O if the MODULE not the NODE
         */
-
         switch (annotatedExpressions[i].type) {
             case ENUM.Assign:
                 let splitted = expression.split('=');
                 let right = splitted[1];
 
-                let output = {
-                    name: null,
-                    beginBit: null,
-                    endBit: null
-                };
-
-                output.name = splitted[0].match(/(?<=(assign\s+))(\w+)/)[0];
+                let outputName = splitted[0].match(/(?<=(assign\s+))(\w+)/)[0];
                 words = right.match(/[A-Za-z][\w]*/g);
 
                 var uniqueWords: string[] = Array.from(new Set(words));
@@ -332,13 +322,12 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
                     node.callSyntax.push(getVariableObj(obj, uniqueWords[i]));
                 }
 
-                output = getVariableObj(obj, output.name);
+                let output: ParameterSyntax = getVariableObj(obj, outputName);
                 let bits = getAssignBits(expression);
                 if (bits) {
                     output.beginBit = bits[0];
                     output.endBit = bits[1];
                 }
-
                 node.outputs.push(output);
                 node.stack = parse(right);
                 obj.nodes.push(node);
@@ -365,7 +354,7 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
                 let subModuleParameters = moduleDict[node.moduleName].callSyntax;
                 for (let i = 0; i < subModuleParameters.length; i++) {
                     const subModuleParameter = subModuleParameters[i];
-                    if(subModuleParameter.type == "O"){
+                    if (subModuleParameter.type == "O") {
                         node.outputs.push(node.callSyntax[i])
                         node.callSyntax.splice(i, 1);
                         //remove the output from the callsyntax
@@ -404,7 +393,7 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
      * uses asdf[1] or asdf[1:2] or asdf
      * @param text 
      */
-    function getModuleUsageBits(text: string) {
+    function getModuleUsageBits(text: string): number[] {
         let match = text.match(/(?<=(\[))((\d+(:\d+)?))/);
         if (!match) {
             return null;
@@ -429,7 +418,6 @@ export function elaborateModuleDict(moduleDict: ModuleDict): ModuleDict {
     let elaboratedModules: ModuleDict = {};
 
     Object.keys(moduleDict).forEach(key => {
-        const module = moduleDict[key];
         elaboratedModules[key] = elaborateModuleObj(moduleDict[key], moduleDict)
     });
 
@@ -483,7 +471,7 @@ let parser = new Parser({
  * outputs text in postfix "stack" notation
  * @param input 
  */
-function parse(input: string): string[] {
+export function parse(input: string): string[] {
     lexer.setInput(input);
     let tokens = [],
         token;
@@ -589,21 +577,38 @@ Parser.prototype.parse = function (input) {
     return output;
 };
 
-// let parsedText = parse(`{
-//     ~a & b & ~c & d,
-//     (b & ~c & ~d) | (~a & ~b & (c | d)),
-//     (~c & ~d) | (~b & c & d),
-//     (~a & ~c & ~d) | (b & c & d) | (~b & c & ~d)
-// }`);
-// console.log("stack", parsedText)
 
-// let evaluatedStack = evaluateStack({
-//     a: BitwiseLib.binaryToBitArray("0"),
-//     b: BitwiseLib.binaryToBitArray("0"),
-//     c: BitwiseLib.binaryToBitArray("0"),
-//     d: BitwiseLib.binaryToBitArray("0"),
-// }, parsedText);
 
-// console.log("evaluated stack", evaluatedStack)
-//
-// console.log(BitwiseLib.bitArrayToString(evaluatedStack))
+export function clone(obj) {
+    var copy;
+
+    // Handle the 3 simple types, and null or undefined
+    if (null == obj || "object" != typeof obj) return obj;
+
+    // Handle Date
+    if (obj instanceof Date) {
+        copy = new Date();
+        copy.setTime(obj.getTime());
+        return copy;
+    }
+
+    // Handle Array
+    if (obj instanceof Array) {
+        copy = [];
+        for (var i = 0, len = obj.length; i < len; i++) {
+            copy[i] = clone(obj[i]);
+        }
+        return copy;
+    }
+
+    // Handle Object
+    if (obj instanceof Object) {
+        copy = {};
+        for (var attr in obj) {
+            if (obj.hasOwnProperty(attr)) copy[attr] = clone(obj[attr]);
+        }
+        return copy;
+    }
+
+    throw new Error("Unable to copy obj! Its type isn't supported.");
+}

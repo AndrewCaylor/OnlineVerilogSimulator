@@ -10,11 +10,30 @@ export class Evaluator {
     }
 
     /**
+     * uses asdf[1] or asdf[1:2] or asdf
+     * @param text 
+     */
+    getBits(text: string): number[] {
+        let match = text.match(/(?<=(\[))((\d+(:\d+)?))/);
+        if (!match) {
+            return null;
+        }
+        else if (match[0].match(":")) {
+            let splitted = match[0].split(":");
+            return [parseInt(splitted[1]), parseInt(splitted[0])];
+        }
+        else {
+            let num = parseInt(match[0]);
+            return [num, num]
+        }
+    }
+
+    /**
      * 
      * @param node node to evaluate (assumed to be a primitive gate)
      * @param context values for variables
      */
-    evaluateNodeForPrimitive(node: Node, context: BooleanDict): boolean[] {
+    private evaluateNodeForPrimitive(node: Node, context: BooleanDict): boolean[] {
         let bitwiseNotation = BitwiseLib.getBitwiseNotation(node.moduleName);
         if (!bitwiseNotation) {
             return null;
@@ -45,11 +64,11 @@ export class Evaluator {
      * @param context
      * @param tokens postfix notation stack
      */
-    evaluateStack(context: BooleanDict, tokens: string[]): boolean[] {
+    public evaluateStack(context: BooleanDict, tokens: string[]): boolean[] {
         let stack: any[] = [];
 
         for (let i = 0; i < tokens.length; i++) {
-            let token = tokens[i];
+            const token = tokens[i];
 
             let a: any;
             let b: any;
@@ -84,31 +103,65 @@ export class Evaluator {
                             stack.push(BitwiseLib.Operators["DUPLICATE"](a, token));
                         }
                     } else {
-                        if (context[token] === undefined) {
+
+                        let bitRange = this.getBits(token);
+                        let parameterName = token;
+                        if (bitRange) {
+                            parameterName = token.split("[")[0];
+                        }
+                        let bits = context[parameterName];
+
+                        if (bits === undefined) {
                             return null;
                         }
-                        stack.push(context[token]);
+
+                        //gets the bits within the range
+                        if (bitRange) {
+                            bits = bits.slice(bitRange[0], bitRange[1] + 1);
+                        }
+
+                        stack.push(bits);
                     }
             }
         }
+
+
         return stack.pop();
     }
 
     /**
-     * outputs boolean []s for each of the nodes in the module
+     * Pseudocode: 
+    While there are unevaluated nodes:
+        for each node:
+            see if callsyntax for the node has only items defined in IOandWires in it
+            if so, evaluate it and assingn a value to the wire it outputs to
+        repeat until value for output node is found
+        check each cycle if anything changed
+        if not: ERROR => no value for ___ wires!
+
+     * outputs boolean []s for each of the output wires in the module
      * @param module 
      * @param inputs values must align with callsyntax
      */
     evaluateModule(module: Module, inputValues: boolean[][]): boolean[][] {
 
+        // console.log(module.name);
+
         //create dict = dict + wires
         let IOandWires: BooleanDict = {};
+        let inputValueIndex = 0;
         for (let i = 0; i < module.callSyntax.length; i++) {
             const parameter = module.callSyntax[i];
-            IOandWires[parameter.name] = inputValues[i];
+            if (parameter.type == "O") {
+                IOandWires[parameter.name] = BitwiseLib.initializeBitArray((parameter.endBit - parameter.beginBit) + 1);
+            }
+            else {
+                IOandWires[parameter.name] = inputValues[inputValueIndex];
+                inputValueIndex++;
+            }
         }
         module.wires.forEach(wire => {
-            IOandWires[wire.name] = BitwiseLib.initializeBitArray(wire.endBit - wire.beginBit);
+            IOandWires[wire.name] = BitwiseLib.initializeBitArray((wire.endBit - wire.beginBit) + 1);
         });
 
         let nodesNotEvaluated = module.nodes;
@@ -118,6 +171,7 @@ export class Evaluator {
             initialLength = nodesNotEvaluated.length
             for (let nodeIndex = 0; nodeIndex < nodesNotEvaluated.length; nodeIndex++) {
                 const node = nodesNotEvaluated[nodeIndex];
+                // console.log("NODES NOT EVALUATED", nodesNotEvaluated.map(node => { return { "endbit": node.outputs[0].endBit, "stack": node.stack } }))
 
                 let allParametesEvaluated = true;
                 //using for loops instead of foreach 
@@ -139,9 +193,11 @@ export class Evaluator {
                     // }
                 }
 
+                // console.log(allParametesEvaluated)
+
+                //atually evaluates a node
                 if (allParametesEvaluated) {
-                    //atually evaluate node
-                    let values: boolean[][];
+                    let values: boolean[][] = [];
                     switch (node.type) {
                         case ENUM.Assign:
                             values.push(this.evaluateStack(IOandWires, node.stack));
@@ -157,45 +213,53 @@ export class Evaluator {
                                     inputValues[i] = IOandWires[node.callSyntax[i].name]
                                 }
 
-                                let module = this.moduleDict[node.moduleName]
-                                values = this.evaluateModule(this.moduleDict[node.instanceName], inputValues);
+                                values = this.evaluateModule(this.moduleDict[node.moduleName], inputValues);
                             }
                             values.push(valTemp);
                             break;
                     }
+                    // console.log(values);
 
+                    //edits the valies for IO and wires stored in the IOandWires BooleanDict
                     //node can have multiple outputs so it needs to loop through each possible output
+
                     for (let i = 0; i < node.outputs.length; i++) {
                         const output = node.outputs[i];
                         //edit the bits of wire in the values to fill
                         let valueToFill = IOandWires[output.name];
-                        for (let bitInd = output.beginBit; bitInd < output.endBit; bitInd++) {
+                        let valueBitInd = 0;
+                        for (let bitInd = output.beginBit; bitInd <= output.endBit; bitInd++) {
                             let valueToFillBit = valueToFill[bitInd];
                             if (valueToFillBit !== null) {
                                 return null; //bit already assigned to
                             }
-                            IOandWires[output.name][bitInd] = values[i][bitInd];
+                            IOandWires[output.name][bitInd] = values[i][valueBitInd];
+                            valueBitInd++;
                         }
                     }
 
+                    // console.log(module.name, IOandWires, node.outputs[0]);
+
                     nodesNotEvaluated.splice(nodeIndex, 1);
+
                 }
             }
 
             if (initialLength == nodesNotEvaluated.length) {
-                //no nodes were able to be evaluated so that means that there is an error in syntax
+                //no nodes were able to be evaluated this loop so that means that there is an error in syntax
                 return null;
             }
         }
-        //for each node:
-        //  see if callsyntax has only items in dict in it
-        //  if so, evaluate it and assingn a value to the wire it outputs to
-        //repeat until value for output node is found
-        //check each cycle if anything changed
-        //if not: ERROR => no value for ___ wires!
 
-        //returns the values of all of the nodes in the module
+        let output: boolean[][] = [];
 
-        return;
+        module.callSyntax.forEach(parameter => {
+            if (parameter.type == "O") {
+                output.push(IOandWires[parameter.name]);
+            }
+        });
+        // console.log(module.name, " OUTPUTED: ", output)
+
+        return output;
     }
 }
