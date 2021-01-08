@@ -4,6 +4,8 @@ var Lexer = require("lex");
 //importing interfaces
 import { Module, ParameterSyntax, AnnotatedExpression, Node, ENUM, Error, ModuleDict } from "./interfaces";
 
+import { getBitwiseNotation } from "./bitwiseLib"
+
 export function isAssignStatement(text) {
     return (text.match(/assign\s+\w+((\[\d+\])|(\[\d+:\d+\]))?\s+=.+/g) || []).length == 1; //does noit check for correct syntax inside the statement
 }
@@ -81,8 +83,8 @@ export function getBaseModules(text: string): ModuleDict | any {
     //removes multiline line comments
     text = text.replace(/(\/\*)(.|\n)*(\*\/)/g, "");
     text = text.replace(/\n/g, " ");
-    if(true){
-        text = text.replace(/\s+/," ")
+    if (true) {
+        text = text.replace(/\s+/, " ")
     }
 
     let annotatedExpressions: AnnotatedExpression[] = []; //TODO: should also include information about the error
@@ -287,10 +289,7 @@ function getVariableObj(baseModuleObj: Module, variableText: string) {
  * @param obj module object created using generateBaseModuleObj
  */
 function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
-
     let annotatedExpressions = obj.annotatedExpressions; //shorthand
-    // console.log("MODULE", obj.name)
-
 
     //for each expression find the modules/assign statements
     for (let i = 1; i < annotatedExpressions.length; i++) {
@@ -299,6 +298,7 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
         let node: Node = {
             type: annotatedExpressions[i].type,
             callSyntax: [],
+            inputs: [],
             outputs: []
         }
         let words;
@@ -329,6 +329,7 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
                     output.endBit = bits[1];
                 }
                 node.outputs.push(output);
+                node.inputs = node.callSyntax;
                 node.stack = parse(right);
                 obj.nodes.push(node);
                 break;
@@ -350,16 +351,26 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
                     node.callSyntax.push(parameterObj);
                 }
 
-                //denoting which parameters are outputs
-                let subModuleParameters = moduleDict[node.moduleName].callSyntax;
-                for (let i = 0; i < subModuleParameters.length; i++) {
-                    const subModuleParameter = subModuleParameters[i];
-                    if (subModuleParameter.type == "O") {
-                        node.outputs.push(node.callSyntax[i])
-                        node.callSyntax.splice(i, 1);
-                        //remove the output from the callsyntax
-                        //TODO: rename callSyntax to inputs???? in the interface
+                if (moduleDict[node.moduleName]) {
+                    //denoting which parameters are outputs
+                    let subModuleParameters = moduleDict[node.moduleName].callSyntax;
+
+                    for (let i = 0; i < subModuleParameters.length; i++) {
+                        const subModuleParameter = subModuleParameters[i];
+                        if (subModuleParameter.type == "O") {
+                            node.outputs.push(node.callSyntax[i]);
+                        }
+                        else{
+                            node.inputs.push(node.callSyntax[i]);
+                        }
                     }
+                }
+                else {
+                    //implicitly allowes user to overwrite built in modules. TODO? allow them to not
+                    if(!getBitwiseNotation(node.moduleName)){
+                        return null;
+                    }
+                    //else: then the user is using a built in submodule and inputs and outputs are defined
                 }
 
                 obj.nodes.push(node);

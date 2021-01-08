@@ -18,53 +18,65 @@ test("ssd0", () => {
 
     let valArr = evaluator.evaluateModule(elaboratedModules["ssd0"], boolArrArr);
 
-    expect(BitwiseLib.binaryToBitArray("0000001")).toEqual(valArr[0])
+    expect("1000000").toEqual(BitwiseLib.bitArrayToString(valArr[0])); //in my documentation for LEE3 values are reversed
+});
+
+test("pls", () => {
+
+    let baseModules = Generator.getBaseModules(testCode.code3);
+    let elaboratedModules = Generator.elaborateModuleDict(baseModules);
+
+    let boolArrArr = [];
+    boolArrArr.push(BitwiseLib.binaryToBitArray("1100"))
+
+    let evaluator = new Evaluator(elaboratedModules);
+
+    let valArr = evaluator.evaluateModule(elaboratedModules["pls"], boolArrArr);
+
+    expect("1100").toEqual(BitwiseLib.bitArrayToString(valArr[0]))
 });
 
 test("arith", () => {
     let baseModules = Generator.getBaseModules(testCode.code2);
 
-    console.log(baseModules);
-
-    // let elaboratedModules = Generator.elaborateModuleDict(baseModules);
-    // let evaluator = new Evaluator(elaboratedModules);
-    // let opcode = BitwiseLib.binaryToBitArray("0100");
-    // let A = BitwiseLib.decimalToBitArray("69");
+    let elaboratedModules = Generator.elaborateModuleDict(baseModules);
+    let evaluator = new Evaluator(elaboratedModules);
+    let opcode = BitwiseLib.binaryToBitArray("0100");
+    let A = BitwiseLib.binaryToBitArray("00001010");
 
     // for (let i = 0; i < 50; i++) {
-    //     let j = BitwiseLib.decimalToBitArray(i.toString())
-    //     let result = add(A, j);
-    //     expect(result).toEqual(A + i);
+    let j = BitwiseLib.binaryToBitArray("00001001")
+    let result = add(A, j);
+    expect(result).toEqual(A + 15);
     // }
 
 
-    // function add(a, b) {
-    //     let inputs = [opcode, a, b];
+    function add(a, b) {
+        let inputs = [opcode, a, b];
 
-    //     let valArr = evaluator.evaluateModule(elaboratedModules["arith"], inputs);
-    //     let sum = BitwiseLib.bitArrayToString(valArr[0]);
-    //     return parseInt(sum, 2);
-    // }
-});
-
-
-test("assign", () => {
-    let stacks = testCode.assignCode1;
-    let evaluator = new Evaluator({});
-    let context = {
-        a: [false],
-        b: [false],
-        c: [true],
-        d: [true]
+        let valArr = evaluator.evaluateModule(elaboratedModules["arith"], inputs);
+        let sum = BitwiseLib.bitArrayToString(valArr[0]);
+        return parseInt(sum, 2);
     }
-    let arr = [];
-
-    stacks.forEach(stack => {
-        arr.push(evaluator.evaluateStack(context, Generator.parse(stack))[0]);
-    });
-
-    expect(arr).toEqual(BitwiseLib.binaryToBitArray(testCode.assignCode1Expected[3]))
 });
+
+// test("assign", () => {
+//     let stacks = testCode.assignCode1;
+//     let evaluator = new Evaluator({});
+//     let context = {
+//         a: [false],
+//         b: [false],
+//         c: [true],
+//         d: [true]
+//     }
+//     let arr = [];
+
+//     stacks.forEach(stack => {
+//         arr.push(evaluator.evaluateStack(context, Generator.parse(stack))[0]);
+//     });
+
+//     expect(arr).toEqual(BitwiseLib.binaryToBitArray(testCode.assignCode1Expected[3]))
+// });
 
 //TODO: fix
 // test("assign", () => {

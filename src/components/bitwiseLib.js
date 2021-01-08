@@ -24,7 +24,7 @@ export function binaryToBitArray(text) {
             return null;
         }
     });
-    return out;
+    return out.reverse();
 }
 
 //Skylar stole this code
@@ -88,12 +88,12 @@ export function stringToBitArray(text) {
 
 //TODO: implement bitArrayTo: decimal, hex, and octal
 /**
- * 
+ * Have to reverse because verilog does indexing differently
  * @param {Array} array boolean array
  */
 export function bitArrayToString(array) {
     let out = "";
-    array.forEach(bit => {
+    array.reverse().forEach(bit => {
         out += bit ? "1" : "0";
     });
     return out;
@@ -109,7 +109,7 @@ const operators = {
     "~|": function(a, b) { return !(a || b); },
     "^": function(a, b) { return (a || b) && !(a && b); },
     "~^": function(a, b) { return !((a || b) && !(a && b)); },
-    ",": function(a, b) { return b.concat(a); },
+    ",": function(a, b) { return a.concat(b); },
     /**
      * Left shift b a times
      * @param {Number} a 

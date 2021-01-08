@@ -1,5 +1,6 @@
-export const code1 = `
+//code for me to test to parse
 
+export const code1 = `
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // Module:      ssd0
@@ -59,10 +60,10 @@ module ssd(in, out);
 	wire a,b,c,d;
 	
 	//for convienience
-	assign a = in[0];	
-	assign b = in[1];
-	assign c = in[2];
-	assign d = in[3];
+	assign a = in[3];	
+	assign b = in[2];
+	assign c = in[1];
+	assign d = in[0];
 
 	assign out[6] = (~a & ~b & c) | (~a & b & ~c) | (c & d); //7*6 + 4*2 = 50
 	assign out[5] = a | b | (c & ~d); //3*6 + 2 = 20
@@ -74,15 +75,30 @@ module ssd(in, out);
 
 endmodule
 
+
 `;
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 export const code2 = `
+
 //4(1*6) + 4(8*6) + 4(1*2) + 3(8*6) = 368 transistors 
 //5(1+2+2+2) = 35ps
-module mux2to1_8bit(select, in0, in1, in2, in3, out);
+module mux2to1_8bit(select, in0, in1, out);
    input select;
-   input [7:0] in0, in1, in2, in3;
+   input [7:0] in0, in1;
    output [7:0] out;
 	//select is assumed to be active high
 	
@@ -369,6 +385,21 @@ module increment(in, result, carryOut);
 endmodule
 `
 
+
+//bit transfer testing
+export const code3 = `
+module pls(in, out);
+	input  [3:0] in;
+    output [3:0] out;
+    	
+	assign out[3] = in[3];	
+	assign out[2] = in[2];
+	assign out[1:0] = in[1:0];
+endmodule
+`
+
+
+
 export const assignCode1 = [
     "(~a & ~b & c) | (~a & b & ~c) | (c & d)",
     "a | b | (c & ~d)",
@@ -390,3 +421,12 @@ export const assignCode1Expected = [
     "1001111",
     "1000010"
 ];
+
+
+//01234
+//43210
+
+//0011 3
+//\/
+//1100 3
+//0123

@@ -109,8 +109,8 @@ export class Evaluator {
                         if (bitRange) {
                             parameterName = token.split("[")[0];
                         }
-                        let bits = context[parameterName];
 
+                        let bits = context[parameterName];
                         if (bits === undefined) {
                             return null;
                         }
@@ -119,12 +119,10 @@ export class Evaluator {
                         if (bitRange) {
                             bits = bits.slice(bitRange[0], bitRange[1] + 1);
                         }
-
                         stack.push(bits);
                     }
             }
         }
-
 
         return stack.pop();
     }
@@ -133,7 +131,7 @@ export class Evaluator {
      * Pseudocode: 
     While there are unevaluated nodes:
         for each node:
-            see if callsyntax for the node has only items defined in IOandWires in it
+            see if inputs for the node has only items defined in IOandWires in it
             if so, evaluate it and assingn a value to the wire it outputs to
         repeat until value for output node is found
         check each cycle if anything changed
@@ -141,32 +139,28 @@ export class Evaluator {
 
      * outputs boolean []s for each of the output wires in the module
      * @param module 
-     * @param inputs values must align with callsyntax
+     * @param inputs values must align with input syntax
      */
     evaluateModule(module: Module, inputValues: boolean[][]): boolean[][] {
 
-        // console.log(module.name);
-
         //create dict = dict + wires
         let IOandWires: BooleanDict = {};
-        let inputValueIndex = 0;
-        for (let i = 0; i < module.callSyntax.length; i++) {
-            const parameter = module.callSyntax[i];
-            if (parameter.type == "O") {
-                IOandWires[parameter.name] = BitwiseLib.initializeBitArray((parameter.endBit - parameter.beginBit) + 1);
-            }
-            else {
-                IOandWires[parameter.name] = inputValues[inputValueIndex];
-                inputValueIndex++;
-            }
-        }
+        module.inputs.forEach((parameter, i) => {
+            IOandWires[parameter.name] = inputValues[i];
+        });
+        module.outputs.forEach(parameter => {
+            IOandWires[parameter.name] = BitwiseLib.initializeBitArray((parameter.endBit - parameter.beginBit) + 1);
+        });
         module.wires.forEach(wire => {
             IOandWires[wire.name] = BitwiseLib.initializeBitArray((wire.endBit - wire.beginBit) + 1);
         });
+        console.log(module.name, IOandWires);
+
 
         let nodesNotEvaluated = module.nodes;
 
         let initialLength;
+        mainWhile:
         while (nodesNotEvaluated.length > 0) {
             initialLength = nodesNotEvaluated.length
             for (let nodeIndex = 0; nodeIndex < nodesNotEvaluated.length; nodeIndex++) {
@@ -176,13 +170,11 @@ export class Evaluator {
                 let allParametesEvaluated = true;
                 //using for loops instead of foreach 
                 //for more efficent run time because this is a hella lot of for loops
-                //this checks that all of the variables used in teh callsyntax are evaluated
+                //this checks that all of the values used in the inputs are evaluated
                 outer:
-                for (let i = 0; i < node.callSyntax.length; i++) {
-                    const parameter = node.callSyntax[i];
+                for (let i = 0; i < node.inputs.length; i++) {
+                    const parameter = node.inputs[i];
                     //If the parameter is an output for the module, it does not have to be full
-                    // if (!node.outputs.find(outParameter => outParameter.name == parameter.name)) {
-                    //removed because the output was filtered out of the callSyntax
                     let valueObj = IOandWires[parameter.name];
                     for (let j = 0; j < valueObj.length; j++) {
                         if (valueObj[j] === null) {
@@ -190,10 +182,7 @@ export class Evaluator {
                             break outer;
                         }
                     }
-                    // }
                 }
-
-                // console.log(allParametesEvaluated)
 
                 //atually evaluates a node
                 if (allParametesEvaluated) {
@@ -208,9 +197,13 @@ export class Evaluator {
                             let valTemp = this.evaluateNodeForPrimitive(node, IOandWires);
                             if (!valTemp) {
                                 let inputValues: boolean[][] = [];
+                                let beginBit: number;
+                                let endBit: number;
 
                                 for (let i = 0; i < node.callSyntax.length; i++) {
-                                    inputValues[i] = IOandWires[node.callSyntax[i].name]
+                                    beginBit = node.callSyntax[i].beginBit;
+                                    endBit = node.callSyntax[i].endBit;
+                                    inputValues[i] = IOandWires[node.callSyntax[i].name].slice(beginBit, endBit + 1);
                                 }
 
                                 values = this.evaluateModule(this.moduleDict[node.moduleName], inputValues);
@@ -246,19 +239,40 @@ export class Evaluator {
             }
 
             if (initialLength == nodesNotEvaluated.length) {
-                //no nodes were able to be evaluated this loop so that means that there is an error in syntax
-                return null;
+                //test if all the outputs are set:
+
+                let allParametersSet = true;
+                let parameters = Object.values(IOandWires);
+                parentFor:
+                for (let i = 0; i < parameters.length; i++) {
+                    const parameter = parameters[i];
+                    for (let j = 0; j < parameter.length; j++) {
+                        const bit = parameter[j];
+                        if (bit === null) {
+                            allParametersSet = false;
+                            break parentFor;
+                        }
+                    }
+                }
+
+                if (allParametersSet) {
+                    break mainWhile;
+                }
+                else {
+                    console.log("no nodes were able to be evaluated this loop so that means that there is an error in syntax");
+                    return null;
+                }
             }
         }
 
         let output: boolean[][] = [];
 
-        module.callSyntax.forEach(parameter => {
-            if (parameter.type == "O") {
-                output.push(IOandWires[parameter.name]);
-            }
+        module.outputs.forEach(parameter => {
+            output.push(IOandWires[parameter.name]);
         });
-        // console.log(module.name, " OUTPUTED: ", output)
+        console.log(module.name, " OUTPUTED: ", output)
+        console.log(module.name, " wiresnstuff: ", IOandWires)
+
 
         return output;
     }

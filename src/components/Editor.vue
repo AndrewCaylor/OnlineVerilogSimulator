@@ -47,8 +47,8 @@ export default {
       return highlight(code, languages.verilog); //returns html
     },
     compile() {
-      // var d = new Date();
-      // var start = d.getTime();
+      var d = new Date();
+      var start = d.getTime();
 
       let net = util.getBaseModules(this.verilogCode);
 
@@ -66,10 +66,10 @@ export default {
       // let elaborated1 = util.elaborateModuleDict(net);
       // console.log(elaborated1);
 
-      // var e = new Date();
-      // var end = e.getTime();
 
-      // console.log("time to compile: ", end - start); //approx 12ms
+      var e = new Date();
+      var end = e.getTime();
+      console.log("time to compile: ", end - start); //approx 12ms
     },
   },
   mounted() {

@@ -25,6 +25,7 @@ export interface AnnotatedExpression {
 export interface Node {
     type: ExpressionType
     callSyntax: ParameterSyntax[]
+    inputs: ParameterSyntax[]
     outputs: ParameterSyntax[]
     stack?: string[] //.
     moduleName?: string //used for module usage statements
