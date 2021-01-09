@@ -1,11 +1,7 @@
 <template>
   <div class="main">
-    <div>
-      <div style="padding-bottom: 1em">
-        <button type="button" class="btn btn-secondary" v-on:click="compile()">
-          generate network
-        </button>
-      </div>
+    <div></div>
+    <div style="margin: 1rem">
       <prism-editor
         v-model="verilogCode"
         :highlight="highlighter"
@@ -13,14 +9,10 @@
         class="myEditor"
       ></prism-editor>
     </div>
-
-    <CompileLogic />
   </div>
 </template>
 
 <script>
-import CompileLogic from "./CompileLogic.vue";
-
 import { PrismEditor } from "vue-prism-editor";
 import "vue-prism-editor/dist/prismeditor.min.css"; // import the styles somewhere
 
@@ -31,7 +23,7 @@ import "prismjs/themes/prism-tomorrow.css"; // import syntax highlighting styles
 import * as util from ".//generateNodeNetwork.ts";
 
 export default {
-  components: { CompileLogic, PrismEditor },
+  components: { PrismEditor },
   name: "Editor",
   idCounter: 0,
   props: {},
@@ -56,7 +48,7 @@ export default {
 
       let elaborated1 = util.elaborateModuleDict(net);
 
-      console.log(elaborated1)
+      console.log(elaborated1);
 
       // net = JSON.parse(JSON.stringify(net));
 
@@ -65,7 +57,6 @@ export default {
       // console.log(net)
       // let elaborated1 = util.elaborateModuleDict(net);
       // console.log(elaborated1);
-
 
       var e = new Date();
       var end = e.getTime();
@@ -88,6 +79,7 @@ export default {
 .myEditor {
   font-family: "Courier New", Courier, monospace;
 }
+
 .main {
   display: flex;
   flex-direction: left;
