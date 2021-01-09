@@ -3,7 +3,9 @@
     <div class="myNav">
       <div class="subNav">
         <div style="text-align: left">
-          <h2 style="margin-bottom: -10px; font-weight: bold">Andrew's Verilog Sim</h2>
+          <h2 style="margin-bottom: -10px; font-weight: bold">
+            Andrew's Verilog Sim
+          </h2>
           <sub>Done in Javascript because I am a masochist</sub>
         </div>
       </div>
@@ -17,7 +19,7 @@
         ></a>
       </div>
 
-      <div class="subNav" style="float: right">
+      <div class="subNav">
         <div>
           <button
             type="button"
@@ -41,6 +43,8 @@
         </div>
       </div>
     </div>
+    <!-- fills in for position fixed nav -->
+    <div style="height: 5rem"></div>
 
     <div v-if="toggleState">
       <Editor />
@@ -126,7 +130,14 @@ sub {
   padding-left: 0.5rem;
   padding-right: 0.5rem;
   border-bottom: 1px solid #999;
+  position: fixed;
+  width: 100%;
+  z-index: 999;
   // float: right;
+}
+
+.myNav + {
+  margin-top: 100rem;
 }
 
 .subNav {

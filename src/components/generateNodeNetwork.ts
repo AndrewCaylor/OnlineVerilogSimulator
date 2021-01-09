@@ -4,41 +4,42 @@ var Lexer = require("lex");
 //importing interfaces
 import { Module, ParameterSyntax, AnnotatedExpression, Node, ENUM, Error, ModuleDict } from "./interfaces";
 
-import { getBitwiseNotation } from "./bitwiseLib"
+import { getBitwiseNotation } from ".//bitwiseLib"
 
-export function isAssignStatement(text) {
+function isAssignStatement(text) {
     return (text.match(/assign\s+\w+((\[\d+\])|(\[\d+:\d+\]))?\s+=.+/g) || []).length == 1; //does noit check for correct syntax inside the statement
 }
 
 /*
-TODO: allow this: (multiple instantiations of and without writing and multiple times)
+TODO?: allow this: (multiple instantiations of and without writing and multiple times)
 and G5 (x[3], a[3], b[3]), 
     G6 (x[2], a[2], b[2]),
     G7 (x[1], a[1], b[1]),
     G8 (x[0], a[0], b[0]);
 */
-export function isModuleUsage(text) {
-    return (text.match(/\w+\s+\w+\((\s*\w+((\[\d+\])|(\[\d+:\d+\]))*)(,\s*\w+((\[\d+\])|(\[\d+:\d+\]))*)*\)/g) || []).length == 1;
+//may the lord have mercy on my soul (190 characters of regex)
+function isModuleUsage(text) {
+    return (text.match(/\w+\s+\w+\s*\((\s*(([A-z]\w*((\[\d+\])|(\[\d+:\d+\]))?)|(\d*'((b[01]+)|(d[0-9]+)|(h[0-9A-F]+))))\s*)(,\s*(([A-z]\w*((\[\d+\])|(\[\d+:\d+\]))?)|(\d*'((b[01]+)|(d[0-9]+)|(h[0-9A-F]+))))\s*)+\)/g) || []).length == 1;
 }
-export function isModuleDeclaration(text) {
+function isModuleDeclaration(text) {
     return (
         (text.match(/module\s+\w+\((\s*\w+\s*,)*(\s*\w+\s*\))/g) || [])
             .length == 1
     );
 }
-export function isWireDeclaration(text) {
+function isWireDeclaration(text) {
     return (
         (text.match(/wire\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+$)/g) || [])
             .length == 1
     );
 }
-export function isInputDeclaration(text) {
+function isInputDeclaration(text) {
     return (
         (text.match(/input\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+$)/g) || [])
             .length == 1
     );
 }
-export function isOutputDeclaration(text) {
+function isOutputDeclaration(text) {
     return (
         (text.match(/output\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+$)/g) || [])
             .length == 1
@@ -335,20 +336,29 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
                 break;
 
             case ENUM.ModuleUsage:
-                words = expression.match(/((?=\s*)\w+((\[\d+\])|(\[\d+:\d+\]))*)/g);
+
+                words = expression.match(/((?=\s*)\w+((\[\d+\])|(\[\d+:\d+\])|\d*'((b[01]+)|(d[0-9]+)|(h[0-9A-F]+)))*)/g);
                 node.moduleName = words[0];
                 node.instanceName = words[1];
 
                 let moduleIO: string[] = words.slice(2);
                 for (let i = 0; i < moduleIO.length; i++) {
+                    const parameter = moduleIO[i];
 
-                    let bits = getModuleUsageBits(moduleIO[i]);
-                    let parameterObj = getVariableObj(obj, moduleIO[i].match(/\w+/)[0]);
-                    if (bits) {
-                        parameterObj.beginBit = bits[0];
-                        parameterObj.endBit = bits[1];
+                    if (parameter.match(/\d*'((b[01]+)|(d[0-9]+)|(h[0-9A-F]+))/)) {
+                        // node.callSyntax.push({
+//TODO CREATE PARAMETER SYNTAX FROM HERE
+                        // })
                     }
-                    node.callSyntax.push(parameterObj);
+                    else {
+                        let bits = getModuleUsageBits(parameter);
+                        let parameterObj = getVariableObj(obj, parameter.match(/\w+/)[0]);
+                        if (bits) {
+                            parameterObj.beginBit = bits[0];
+                            parameterObj.endBit = bits[1];
+                        }
+                        node.callSyntax.push(parameterObj);
+                    }
                 }
 
                 if (moduleDict[node.moduleName]) {
@@ -360,14 +370,14 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
                         if (subModuleParameter.type == "O") {
                             node.outputs.push(node.callSyntax[i]);
                         }
-                        else{
+                        else {
                             node.inputs.push(node.callSyntax[i]);
                         }
                     }
                 }
                 else {
                     //implicitly allowes user to overwrite built in modules. TODO? allow them to not
-                    if(!getBitwiseNotation(node.moduleName)){
+                    if (!getBitwiseNotation(node.moduleName)) {
                         return null;
                     }
                     //else: then the user is using a built in submodule and inputs and outputs are defined

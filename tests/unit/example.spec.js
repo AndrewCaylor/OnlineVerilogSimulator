@@ -18,7 +18,7 @@ test("ssd0", () => {
 
     let valArr = evaluator.evaluateModule(elaboratedModules["ssd0"], boolArrArr);
 
-    expect("1000000").toEqual(BitwiseLib.bitArrayToString(valArr[0])); //in my documentation for LEE3 values are reversed
+    expect("1000000").toEqual(BitwiseLib.bitArrayToString(valArr[0], 2)); //in my documentation for LEE3 values are reversed
 });
 
 test("pls", () => {
@@ -33,31 +33,58 @@ test("pls", () => {
 
     let valArr = evaluator.evaluateModule(elaboratedModules["pls"], boolArrArr);
 
-    expect("1100").toEqual(BitwiseLib.bitArrayToString(valArr[0]))
+    expect("1100").toEqual(BitwiseLib.bitArrayToString(valArr[0], 2))
 });
 
-test("arith", () => {
-    let baseModules = Generator.getBaseModules(testCode.code2);
+// test("arith", () => {
+//     let baseModules = Generator.getBaseModules(testCode.code2);
 
-    let elaboratedModules = Generator.elaborateModuleDict(baseModules);
-    let evaluator = new Evaluator(elaboratedModules);
-    let opcode = BitwiseLib.binaryToBitArray("0100");
-    let A = BitwiseLib.binaryToBitArray("00001010");
+//     let elaboratedModules = Generator.elaborateModuleDict(baseModules);
+//     let evaluator = new Evaluator(elaboratedModules);
+//     let opcode = BitwiseLib.binaryToBitArray("0100");
+//     let A = BitwiseLib.binaryToBitArray("00001010");
 
-    // for (let i = 0; i < 50; i++) {
-    let j = BitwiseLib.binaryToBitArray("00001001")
-    let result = add(A, j);
-    expect(result).toEqual(A + 15);
-    // }
+//     // for (let i = 0; i < 50; i++) {
+//     let j = BitwiseLib.binaryToBitArray("00001001")
+//     let result = add(A, j);
+//     expect(result).toEqual(A + 15);
+//     // }
 
 
-    function add(a, b) {
-        let inputs = [opcode, a, b];
+//     function add(a, b) {
+//         let inputs = [opcode, a, b];
 
-        let valArr = evaluator.evaluateModule(elaboratedModules["arith"], inputs);
-        let sum = BitwiseLib.bitArrayToString(valArr[0]);
-        return parseInt(sum, 2);
+//         let valArr = evaluator.evaluateModule(elaboratedModules["arith"], inputs);
+//         let sum = BitwiseLib.bitArrayToString(valArr[0]);
+//         return parseInt(sum, 2);
+//     }
+// });
+
+test("bitsToString", () => {
+
+    for (let i = 0; i < 100; i++) {
+        let binString = i.toString(2);
+        let A = BitwiseLib.binaryToBitArray(binString);
+
+        let a = BitwiseLib.bitArrayToString(A, 2);
+        let b = BitwiseLib.bitArrayToString(A, 16);
+        let c = BitwiseLib.bitArrayToString(A, 10);
+
+
+        expect(i * 2).toEqual(parseInt(a, 2) * 2);
+        expect(i * 2).toEqual(parseInt(b, 16) * 2);
+        expect(i * 2).toEqual(parseInt(c, 10) * 2);
     }
+
+    let A = BitwiseLib.binaryToBitArray("000001010");
+
+    let a = BitwiseLib.bitArrayToString(A, 2);
+    let b = BitwiseLib.bitArrayToString(A, 16);
+    let c = BitwiseLib.bitArrayToString(A, 10);
+    expect(a).toEqual("000001010");
+    expect(b).toEqual("00A");
+    expect(c).toEqual("10");
+
 });
 
 // test("assign", () => {

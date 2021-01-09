@@ -8,13 +8,14 @@ export interface Module {
     nodes: Node[]
 }
 
-export type IO = "I" | "O" | null;
+//null can be implied to be a wire
+//CONST is for numbers
+export type IO = "I" | "O" | "CONST" | null;
 export interface ParameterSyntax {
     name: string
     beginBit: number
     endBit: number
     type?: IO //Has to do with the PARENT module's IO
-    
 }
 
 export interface AnnotatedExpression {

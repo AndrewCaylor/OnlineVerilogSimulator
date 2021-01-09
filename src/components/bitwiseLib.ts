@@ -1,4 +1,5 @@
 /*eslint-disable*/
+import { clone } from ".//generateNodeNetwork"
 
 
 /**
@@ -11,9 +12,9 @@ export function initializeBitArray(length) {
 
 /**
  * 
- * @param {string} text 0s and 1s
+ * @param text 0s and 1s
  */
-export function binaryToBitArray(text) {
+export function binaryToBitArray(text: string) {
     let out = [];
     text.split("").forEach(char => {
         if (char === "0") {
@@ -27,95 +28,83 @@ export function binaryToBitArray(text) {
     return out.reverse();
 }
 
-//Skylar stole this code
-function convertToBinary(x) {
-    let bin = 0;
-    let rem, i = 1,
-        step = 1;
-    while (x != 0) {
-        rem = x % 2;
-        x = parseInt(x / 2);
-        bin = bin + rem * i;
-        i = i * 10;
+/**
+ * ex: 5'hFFF => converts hex to binary and makes array 5 bits wide
+ * b: binary d: decimal h: hex NO OCTAL: FUCK OCTAL ALL MY HOMIES USE HEX
+ * @param text 
+ */
+export function stringToBitArray(text) {
+    let type: string = text.match(/(?<=\d*')[bdh]/);
+    let splitted: string[] = text.split(/'[bdh]/);
+    let right = splitted[1];
+    let bitArrayLength = parseInt(splitted[0]);
+
+    let binaryString: string;
+    switch (type[0]) {
+        case "h":
+            binaryString = parseInt(right, 16).toString(2);
+            break;
+        case "d":
+            binaryString = parseInt(right, 10).toString(2);
+            break;
     }
-    return bin;
+    let bitArray = binaryToBitArray(binaryString);
+
+    if(bitArrayLength){
+        if(bitArray.length > bitArrayLength){
+            bitArray = bitArray.slice(0, bitArrayLength);
+        }
+        else if(bitArray.length < bitArrayLength){
+            while(bitArray.length != bitArrayLength) bitArray.push(false);
+        }
+    
+    }
+    return bitArray;
 }
 
 /**
  * 
- * @param {string} text 0s and 1s
+ * @param text 
  */
-//Skylar wuz here, praise/blame him if it works/doesn't
-export function decimalToBitArray(text) {
-    //if this number has anything other than these symbols,
-    //it's not decimal ergo return null
-    let decimalArray = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    text.split("").forEach(char => {
-        if (!decimalArray.includes(char)) {
-            return null;
-        }
-    });
-    let number = parseInt(text);
-    let binary = convertToBinary(number).toString();
-    return binaryToBitArray(binary);
+export function isValidBitString(text: string){
+    return !! text.match(/\d*'((b[01]+)|(d[0-9]+)|(h[0-9A-F]+))/)
 }
 
-
-/**
- * ex: 5'hFFF => converts hex to binary and makes array 5 bits wide
- * b: binary d: decimal o: ocatal h: hex
- * @param {string} text 
- */
-export function stringToBitArray(text) {
-    //TODO: check if numbers are valid
-    //TODO: implement things
-
-    let type = text.match(/(?<=\d*')[bdoh]/);
-    if (type) {
-        switch (type[0]) {
-            case "b":
-
-                break;
-
-
-            default:
-                break;
-        }
-    } else {
-        return null;
-    }
-}
-
-//TODO: implement bitArrayTo: decimal, hex, and octal
 /**
  * Have to reverse because verilog does indexing differently
- * @param {Array} array boolean array
+ * @param array boolean array
+ * @param radix 
  */
-export function bitArrayToString(array) {
+export function bitArrayToString(array: boolean[], radix: number) {
     let out = "";
-    array.reverse().forEach(bit => {
+    clone(array).reverse().forEach(bit => {
         out += bit ? "1" : "0";
     });
-    return out;
+    let multiplier = Math.log2(radix);
+    let string = parseInt(out, 2).toString(radix);
+    if(radix != 10){
+        while(string.length < (array.length / multiplier)) string = "0" + string;
+    }
+    return string.toUpperCase();
 }
 
 
 
 const operators = {
-    "~": function(a) { return !a; },
-    "~&": function(a, b) { return !(a && b); },
-    "&": function(a, b) { return a && b; },
-    "|": function(a, b) { return a || b; },
-    "~|": function(a, b) { return !(a || b); },
-    "^": function(a, b) { return (a || b) && !(a && b); },
-    "~^": function(a, b) { return !((a || b) && !(a && b)); },
-    ",": function(a, b) { return a.concat(b); },
+    "~": function (a) { return !a; },
+    "~&": function (a, b) { return !(a && b); },
+    "&": function (a, b) { return a && b; },
+    "|": function (a, b) { return a || b; },
+    "~|": function (a, b) { return !(a || b); },
+    "^": function (a, b) { return (a || b) && !(a && b); },
+    "~^": function (a, b) { return !((a || b) && !(a && b)); },
+    ",": function (a, b) { return a.concat(b); },
     /**
      * Left shift b a times
      * @param {Number} a 
      * @param {Array} b 
      */
-    "<<": function(a, b) {
+    "<<": function (a, b) {
         while (a > 0) {
             b.shift();
             b.push(false);
@@ -128,7 +117,7 @@ const operators = {
      * @param {Number} a 
      * @param {Array} b 
      */
-    ">>": function(a, b) {
+    ">>": function (a, b) {
         while (a > 0) {
             b.pop();
             b.unshift(false)
@@ -136,7 +125,7 @@ const operators = {
         }
         return b;
     },
-    "DUPLICATE": function(a, b) {
+    "DUPLICATE": function (a, b) {
         let out = [];
         while (b > 0) {
             out = out.concat(a);
