@@ -1,5 +1,5 @@
 /*eslint-disable*/
-import { clone } from ".//generateNodeNetwork"
+import { clone, parse } from ".//generateNodeNetwork"
 
 
 /**
@@ -28,18 +28,28 @@ export function binaryToBitArray(text: string) {
     return out.reverse();
 }
 
+export function isVerilogNumber(text): boolean {
+    return !!text.match(/\d*'((b[01]+)|(d[0-9]+)|(h[0-9A-F]+))/)
+}
+
 /**
  * ex: 5'hFFF => converts hex to binary and makes array 5 bits wide
  * b: binary d: decimal h: hex NO OCTAL: FUCK OCTAL ALL MY HOMIES USE HEX
  * @param text 
  */
-export function stringToBitArray(text) {
-    let type: string = text.match(/(?<=\d*')[bdh]/);
+export function stringToBitArray(text: string): boolean[] {
+    let type: string[] = text.match(/(?<=\d*')[bdh]/);
     let splitted: string[] = text.split(/'[bdh]/);
+
+    if (splitted.length == 1) {
+        let temp = parseInt(splitted[0], 10).toString(2);
+        return binaryToBitArray(temp);
+    }
+
     let right = splitted[1];
     let bitArrayLength = parseInt(splitted[0]);
 
-    let binaryString: string;
+    let binaryString: string = right;
     switch (type[0]) {
         case "h":
             binaryString = parseInt(right, 16).toString(2);
@@ -50,14 +60,14 @@ export function stringToBitArray(text) {
     }
     let bitArray = binaryToBitArray(binaryString);
 
-    if(bitArrayLength){
-        if(bitArray.length > bitArrayLength){
+    if (bitArrayLength) {
+        if (bitArray.length > bitArrayLength) {
             bitArray = bitArray.slice(0, bitArrayLength);
         }
-        else if(bitArray.length < bitArrayLength){
-            while(bitArray.length != bitArrayLength) bitArray.push(false);
+        else if (bitArray.length < bitArrayLength) {
+            while (bitArray.length != bitArrayLength) bitArray.push(false);
         }
-    
+
     }
     return bitArray;
 }
@@ -66,8 +76,8 @@ export function stringToBitArray(text) {
  * 
  * @param text 
  */
-export function isValidBitString(text: string){
-    return !! text.match(/\d*'((b[01]+)|(d[0-9]+)|(h[0-9A-F]+))/)
+export function isValidBitString(text: string) {
+    return !!text.match(/\d*'((b[01]+)|(d[0-9]+)|(h[0-9A-F]+))/);
 }
 
 /**
@@ -82,12 +92,11 @@ export function bitArrayToString(array: boolean[], radix: number) {
     });
     let multiplier = Math.log2(radix);
     let string = parseInt(out, 2).toString(radix);
-    if(radix != 10){
-        while(string.length < (array.length / multiplier)) string = "0" + string;
+    if (radix != 10) {
+        while (string.length < (array.length / multiplier)) string = "0" + string;
     }
     return string.toUpperCase();
 }
-
 
 
 const operators = {
@@ -152,10 +161,9 @@ export function doOperation(operator, a, b) {
         case "~":
             out = [];
             for (let i = 0; i < a.length; i++) {
-                out.push(operation(a[i]));
+                out.push(operation(a[i], null));
             }
-            return out;
-
+            break;
         case "&":
         case "~&":
         case "|":
@@ -170,8 +178,7 @@ export function doOperation(operator, a, b) {
             for (let i = 0; i < a.length; i++) {
                 out.push(operation(a[i], b[i]));
             }
-            return out;
-
+            break;
         case ",":
         case ">>":
         case "<<":
@@ -180,6 +187,7 @@ export function doOperation(operator, a, b) {
         default:
             return null;
     }
+    return out;
 }
 
 /**

@@ -4,7 +4,7 @@ var Lexer = require("lex");
 //importing interfaces
 import { Module, ParameterSyntax, AnnotatedExpression, Node, ENUM, Error, ModuleDict } from "./interfaces";
 
-import { getBitwiseNotation } from ".//bitwiseLib"
+import * as BitwiseLib from ".//bitwiseLib"
 
 function isAssignStatement(text) {
     return (text.match(/assign\s+\w+((\[\d+\])|(\[\d+:\d+\]))?\s+=.+/g) || []).length == 1; //does noit check for correct syntax inside the statement
@@ -178,6 +178,8 @@ function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[]) {
     obj.annotatedExpressions = annotatedExpressions;
     obj.name = annotatedExpressions[0].expression.match(/\w+/g)[1]; //get second word
 
+    let IOs = annotatedExpressions[0].expression.match(/\w+/)
+
     //TODO: probally combine this function with the other getbits functions I wrote in to one
     function getBits(expressionText: string): number[] {
         //get area between brackets
@@ -210,7 +212,7 @@ function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[]) {
         bits = getBits(temp);
         vars = getVariables(temp);
 
-        let tempArr = [];
+        let tempArr: ParameterSyntax[] = [];
         vars.forEach((ele) => {
             tempArr.push({
                 name: ele,
@@ -221,10 +223,12 @@ function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[]) {
 
         switch (annotatedExpressions[i].type) {
             case ENUM.Input:
+                tempArr.map(input => { input.type = "I"; return input; })
                 obj.inputs = obj.inputs.concat(tempArr);
                 break;
 
             case ENUM.Output:
+                tempArr.map(output => { output.type = "O"; return output; })
                 obj.outputs = obj.outputs.concat(tempArr);
                 break;
 
@@ -242,19 +246,26 @@ function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[]) {
         .replace(/\s/g, "")
         .split(",");
 
-    obj.inputs.forEach(parameter => {
-        //TODO: check that every in/out has been assigned
-        parameter.type = "I";
+    insNouts.forEach(inOrOut => {
+        let parameter: ParameterSyntax;
+        parameter = obj.inputs.find(input => input.name == inOrOut);
+        if (!parameter) {
+            parameter = obj.outputs.find(output => output.name == inOrOut);
+        }
+        if (!parameter) {
+            console.log("IO Variable not declared in module body", inOrOut);
+            return null;
+        }
         obj.callSyntax.push(parameter);
     });
 
-    obj.outputs.forEach(parameter => {
-        //TODO: check that every in/out has been assigned
-        parameter.type = "O";
-        obj.callSyntax.push(parameter);
+    let allIO = obj.inputs.concat(obj.outputs);
+    allIO.forEach(inOrOut => {
+        if (!obj.callSyntax.find(parameter => parameter.name == inOrOut.name)) {
+            console.log("IO Variable not declared in module declaration", inOrOut);
+            return null;
+        }
     });
-
-    //check that there are no dupes
 
     return obj;
 }
@@ -311,11 +322,13 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
         */
         switch (annotatedExpressions[i].type) {
             case ENUM.Assign:
+
                 let splitted = expression.split('=');
                 let right = splitted[1];
 
                 let outputName = splitted[0].match(/(?<=(assign\s+))(\w+)/)[0];
-                words = right.match(/[A-Za-z][\w]*/g);
+                //dont match numbers
+                words = right.match(/(?<!(\d*'\w*))[A-Za-z][\w]*/g);
 
                 var uniqueWords: string[] = Array.from(new Set(words));
 
@@ -345,11 +358,18 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
                 for (let i = 0; i < moduleIO.length; i++) {
                     const parameter = moduleIO[i];
 
-                    if (parameter.match(/\d*'((b[01]+)|(d[0-9]+)|(h[0-9A-F]+))/)) {
-                        // node.callSyntax.push({
-//TODO CREATE PARAMETER SYNTAX FROM HERE
-                        // })
+                    //then the parameter is a number
+                    if (BitwiseLib.isValidBitString(parameter)) {
+                        let value = BitwiseLib.stringToBitArray(parameter);
+                        node.callSyntax.push({
+                            name: parameter,
+                            beginBit: 0,
+                            endBit: value.length - 1,
+                            type: "CONST",
+                            "value": value
+                        });
                     }
+                    //parameter is a regular variable
                     else {
                         let bits = getModuleUsageBits(parameter);
                         let parameterObj = getVariableObj(obj, parameter.match(/\w+/)[0]);
@@ -376,11 +396,14 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
                     }
                 }
                 else {
-                    //implicitly allowes user to overwrite built in modules. TODO? allow them to not
-                    if (!getBitwiseNotation(node.moduleName)) {
+                    //implicitly allowes user to overwrite built in modules. TODO?: allow them to not
+                    if (BitwiseLib.getBitwiseNotation(node.moduleName)) {
+                        node.outputs = [node.callSyntax[0]];
+                        node.inputs = node.callSyntax.slice(1);
+                    }
+                    else {
                         return null;
                     }
-                    //else: then the user is using a built in submodule and inputs and outputs are defined
                 }
 
                 obj.nodes.push(node);
@@ -453,20 +476,19 @@ let lexer = new Lexer;
 lexer.addRule(/\s+/, function () {
     /* skip whitespace */
 });
-lexer.addRule(/((?=\s*)\w+((\[\d+\])|(\[\d+:\d+\]))*)/, function (lexeme) {
+
+lexer.addRule(/((?=\s*)\w+((\[\d+\])|(\[\d+:\d+\])|\d*'((b[01]+)|(d[0-9]+)|(h[0-9A-F]+)))*)/, function (lexeme) {
     return lexeme; // symbols
 });
 //TODO: also capture: 1234'h1234
 //b: binary d: decimal o: ocatal h: hex
 //ex: 5'hFFF => represents bit array 5 bits wide
-lexer.addRule(/('b[01])|(\d+)/, function (lexeme) {
-    return lexeme; //gets numbers and "bits"
-});
-//TODO: add support for correct operators
+// lexer.addRule(/('b[01])|(\d+)/, function (lexeme) {
+//     return lexeme; //gets numbers and "bits"
+// });
 lexer.addRule(/(~?[\^\&\|])|[\,\(\)\{\}]|(<<)|(>>)|~/, function (lexeme) {
     return lexeme; // punctuation (i.e. "(", "&", "|", "}")
 });
-//TODO: read more about lexer to figure out wtf this is for
 
 function getParserObj(precedence) {
     return {
@@ -559,7 +581,11 @@ Parser.prototype.parse = function (input) {
                     let lastEntry = stack[stack.length - 1];
                     //if the number is being used as an operand for bit shifting, 
                     //instead of being used as an operator for duplication
+ 
                     if (+token && (lastEntry == "<<" || lastEntry == ">>")) output.push(token);
+                    else if(+token && (input[index] == "{")){
+                        stack.unshift(token + "DUPLICATE")
+                    }
                     else {
                         while (stack.length) {
 

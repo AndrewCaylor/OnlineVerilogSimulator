@@ -1,5 +1,7 @@
 /* eslint-disable no-case-declarations */
 import * as BitwiseLib from "./bitwiseLib";
+import {clone} from "./generateNodeNetwork";
+
 // import { elaborateModules } from "./generateNodeNetwork";
 import { Module, IO, ParameterSyntax, AnnotatedExpression, Node, ENUM, ExpressionType, BooleanDict, Error, ModuleDict } from "./interfaces";
 
@@ -31,9 +33,9 @@ export class Evaluator {
     /**
      * 
      * @param node node to evaluate (assumed to be a primitive gate)
-     * @param context values for variables
+     * @param inputValues values for the inputs
      */
-    private evaluateNodeForPrimitive(node: Node, context: BooleanDict): boolean[] {
+    private evaluateNodeForPrimitive(node: Node, inputValues: boolean[][]): boolean[][] {
         let bitwiseNotation = BitwiseLib.getBitwiseNotation(node.moduleName);
         if (!bitwiseNotation) {
             return null;
@@ -42,30 +44,30 @@ export class Evaluator {
             //TODO: ensure all ins/outs are same bit length
             //TODO: check that module will not output to an input (syntax checking)
             let operation: Function = BitwiseLib.Operators[bitwiseNotation];
-            let in1 = context[node.callSyntax[1].name];
-            let value: boolean[];
+            let in1 = inputValues[0][0];
+            let value: boolean;
             if (bitwiseNotation == "~") {
                 value = operation(in1);
-                return value;
+                return [[value]];
             }
             else {
-                let in2 = context[node.callSyntax[2].name]
+                let in2 = inputValues[1][0];
                 value = operation(in1, in2);
-                for (let i = 3; i < node.callSyntax.length; i++) {
-                    value = operation(value, context[node.callSyntax[i].name])
+                for (let i = 2; i < node.inputs.length; i++) {
+                    value = operation(value, inputValues[i][0])
                 }
-                return value;
+                return [[value]];
             }
         }
     }
 
     /**
-     * 
      * @param context
      * @param tokens postfix notation stack
      */
     public evaluateStack(context: BooleanDict, tokens: string[]): boolean[] {
         let stack: any[] = [];
+        
 
         for (let i = 0; i < tokens.length; i++) {
             const token = tokens[i];
@@ -95,13 +97,20 @@ export class Evaluator {
                 default:
                     //TODO: detect hex, octal and convert to binary
                     //then convert to bit array and push to stack
-                    if (token.match(/^\d+$/)) {
+                    if(token.match(/DUPLICATE/)){
+                        a = stack.pop();
+                        let num = token.match(/\d+/)[0];
+                        stack.push(BitwiseLib.Operators["DUPLICATE"](a, parseInt(num)));
+                    }
+                    else if (token.match(/^\d+$/)) {
                         if (tokens[i + 1] == ">>" || tokens[i + 1] == "<<") {
                             stack.push(token);
                         } else {
-                            a = stack.pop();
-                            stack.push(BitwiseLib.Operators["DUPLICATE"](a, token));
+                            stack.push(BitwiseLib.stringToBitArray(token));
                         }
+                    }
+                    else if(BitwiseLib.isVerilogNumber(token)){
+                        stack.push(BitwiseLib.stringToBitArray(token));
                     } else {
 
                         let bitRange = this.getBits(token);
@@ -142,7 +151,6 @@ export class Evaluator {
      * @param inputs values must align with input syntax
      */
     evaluateModule(module: Module, inputValues: boolean[][]): boolean[][] {
-
         //create dict = dict + wires
         let IOandWires: BooleanDict = {};
         module.inputs.forEach((parameter, i) => {
@@ -154,18 +162,15 @@ export class Evaluator {
         module.wires.forEach(wire => {
             IOandWires[wire.name] = BitwiseLib.initializeBitArray((wire.endBit - wire.beginBit) + 1);
         });
-        console.log(module.name, IOandWires);
 
-
-        let nodesNotEvaluated = module.nodes;
+        let nodesNotEvaluated = clone(module.nodes);
 
         let initialLength;
-        mainWhile:
+        // mainWhile:
         while (nodesNotEvaluated.length > 0) {
             initialLength = nodesNotEvaluated.length
             for (let nodeIndex = 0; nodeIndex < nodesNotEvaluated.length; nodeIndex++) {
                 const node = nodesNotEvaluated[nodeIndex];
-                // console.log("NODES NOT EVALUATED", nodesNotEvaluated.map(node => { return { "endbit": node.outputs[0].endBit, "stack": node.stack } }))
 
                 let allParametesEvaluated = true;
                 //using for loops instead of foreach 
@@ -176,10 +181,13 @@ export class Evaluator {
                     const parameter = node.inputs[i];
                     //If the parameter is an output for the module, it does not have to be full
                     let valueObj = IOandWires[parameter.name];
-                    for (let j = 0; j < valueObj.length; j++) {
-                        if (valueObj[j] === null) {
-                            allParametesEvaluated = false;
-                            break outer;
+                    //if the prameter is a const, then the parameter will be evalueated by definitio
+                    if (parameter.type != "CONST") {
+                        for (let j = 0; j < valueObj.length; j++) {
+                            if (valueObj[j] === null) {
+                                allParametesEvaluated = false;
+                                break outer;
+                            }
                         }
                     }
                 }
@@ -194,24 +202,32 @@ export class Evaluator {
                         case ENUM.ModuleUsage:
                             //if it is a primitive it will return a value
                             //otherwise it will return null... then we will need to recurse the submodule
-                            let valTemp = this.evaluateNodeForPrimitive(node, IOandWires);
-                            if (!valTemp) {
-                                let inputValues: boolean[][] = [];
-                                let beginBit: number;
-                                let endBit: number;
+                            let inputValues: boolean[][] = [];
+                            let beginBit: number;
+                            let endBit: number;
 
-                                for (let i = 0; i < node.callSyntax.length; i++) {
-                                    beginBit = node.callSyntax[i].beginBit;
-                                    endBit = node.callSyntax[i].endBit;
-                                    inputValues[i] = IOandWires[node.callSyntax[i].name].slice(beginBit, endBit + 1);
+                            for (let i = 0; i < node.inputs.length; i++) {
+                                beginBit = node.inputs[i].beginBit;
+                                endBit = node.inputs[i].endBit;
+                                if (node.inputs[i].type == "CONST") {
+                                    inputValues[i] = node.inputs[i].value;
                                 }
+                                else {
+                                    let temp = IOandWires[node.inputs[i].name].slice(beginBit, endBit + 1);
+                                    inputValues[i] = temp;
+                                }
+                            }
 
+                            let valTemp = this.evaluateNodeForPrimitive(node, inputValues);
+
+                            if (valTemp !== null && valTemp !== undefined) {
+                                values = valTemp;
+                            }
+                            else {
                                 values = this.evaluateModule(this.moduleDict[node.moduleName], inputValues);
                             }
-                            values.push(valTemp);
                             break;
                     }
-                    // console.log(values);
 
                     //edits the valies for IO and wires stored in the IOandWires BooleanDict
                     //node can have multiple outputs so it needs to loop through each possible output
@@ -231,37 +247,41 @@ export class Evaluator {
                         }
                     }
 
-                    // console.log(module.name, IOandWires, node.outputs[0]);
-
                     nodesNotEvaluated.splice(nodeIndex, 1);
 
                 }
             }
 
-            if (initialLength == nodesNotEvaluated.length) {
-                //test if all the outputs are set:
+            //not sure if i need this
+            // if (initialLength == nodesNotEvaluated.length) {
+            //     //test if all the outputs are set:
 
-                let allParametersSet = true;
-                let parameters = Object.values(IOandWires);
-                parentFor:
-                for (let i = 0; i < parameters.length; i++) {
-                    const parameter = parameters[i];
-                    for (let j = 0; j < parameter.length; j++) {
-                        const bit = parameter[j];
-                        if (bit === null) {
-                            allParametersSet = false;
-                            break parentFor;
-                        }
-                    }
-                }
+            //     let allParametersSet = true;
+            //     let parameters = Object.values(IOandWires);
+            //     parentFor:
+            //     for (let i = 0; i < parameters.length; i++) {
+            //         const parameter = parameters[i];
+            //         for (let j = 0; j < parameter.length; j++) {
+            //             const bit = parameter[j];
+            //             if (bit === null) {
+            //                 allParametersSet = false;
+            //                 break parentFor;
+            //             }
+            //         }
+            //     }
 
-                if (allParametersSet) {
-                    break mainWhile;
-                }
-                else {
-                    console.log("no nodes were able to be evaluated this loop so that means that there is an error in syntax");
-                    return null;
-                }
+            //     if (allParametersSet) {
+            //         break mainWhile;
+            //     }
+            //     else {
+            //         console.log("no nodes were able to be evaluated this loop so that means that there is an error in syntax");
+            //         return null;
+            //     }
+            // }
+
+            if(initialLength == nodesNotEvaluated.length){
+                console.log("no nodes were able to be evaluated this loop so that means that there is an error in syntax");
+                return null;
             }
         }
 
@@ -270,8 +290,6 @@ export class Evaluator {
         module.outputs.forEach(parameter => {
             output.push(IOandWires[parameter.name]);
         });
-        console.log(module.name, " OUTPUTED: ", output)
-        console.log(module.name, " wiresnstuff: ", IOandWires)
 
 
         return output;

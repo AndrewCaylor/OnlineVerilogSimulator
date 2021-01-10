@@ -1,6 +1,10 @@
 <template>
   <div class="main">
-    <div></div>
+    <div>
+      <button type="button" class="btn btn-secondary" v-on:click="compile()">
+        Simulate!
+      </button>
+    </div>
     <div style="margin: 1rem">
       <prism-editor
         v-model="verilogCode"
@@ -21,6 +25,8 @@ import "prismjs/components/prism-verilog";
 import "prismjs/themes/prism-tomorrow.css"; // import syntax highlighting styles
 
 import * as util from ".//generateNodeNetwork.ts";
+import * as BitwiseLib from ".//bitwiseLib";
+import { Evaluator } from ".//evaluate";
 
 export default {
   components: { PrismEditor },
@@ -46,9 +52,9 @@ export default {
 
       console.log(net);
 
-      let elaborated1 = util.elaborateModuleDict(net);
+      let elaborated = util.elaborateModuleDict(net);
 
-      console.log(elaborated1);
+      console.log(elaborated);
 
       // net = JSON.parse(JSON.stringify(net));
 
@@ -57,6 +63,16 @@ export default {
       // console.log(net)
       // let elaborated1 = util.elaborateModuleDict(net);
       // console.log(elaborated1);
+
+      let evaluator = new Evaluator(elaborated);
+
+      let opcode = BitwiseLib.binaryToBitArray("0100");
+      let a = BitwiseLib.binaryToBitArray("00001010");
+      let b = BitwiseLib.binaryToBitArray("00001001");
+
+      let valArr = evaluator.evaluateModule(elaborated["arith"], [opcode, a, b]);
+
+      console.log(valArr)
 
       var e = new Date();
       var end = e.getTime();

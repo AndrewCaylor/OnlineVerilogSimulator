@@ -36,29 +36,29 @@ test("pls", () => {
     expect("1100").toEqual(BitwiseLib.bitArrayToString(valArr[0], 2))
 });
 
-// test("arith", () => {
-//     let baseModules = Generator.getBaseModules(testCode.code2);
+test("arith", () => {
+    let baseModules = Generator.getBaseModules(testCode.code2);
 
-//     let elaboratedModules = Generator.elaborateModuleDict(baseModules);
-//     let evaluator = new Evaluator(elaboratedModules);
-//     let opcode = BitwiseLib.binaryToBitArray("0100");
-//     let A = BitwiseLib.binaryToBitArray("00001010");
+    let elaboratedModules = Generator.elaborateModuleDict(baseModules);
+    let evaluator = new Evaluator(elaboratedModules);
+    let opcode = BitwiseLib.binaryToBitArray("0100");
+    let A = BitwiseLib.binaryToBitArray("00001010");
 
-//     // for (let i = 0; i < 50; i++) {
-//     let j = BitwiseLib.binaryToBitArray("00001001")
-//     let result = add(A, j);
-//     expect(result).toEqual(A + 15);
-//     // }
+    // for (let i = 0; i < 50; i++) {
+    let j = BitwiseLib.binaryToBitArray("00001001")
+    let result = add(A, j);
+    expect(result).toEqual(19);
+    // }
 
 
-//     function add(a, b) {
-//         let inputs = [opcode, a, b];
+    function add(a, b) {
+        let inputs = [opcode, a, b];
 
-//         let valArr = evaluator.evaluateModule(elaboratedModules["arith"], inputs);
-//         let sum = BitwiseLib.bitArrayToString(valArr[0]);
-//         return parseInt(sum, 2);
-//     }
-// });
+        let valArr = evaluator.evaluateModule(elaboratedModules["arith"], inputs);
+        let sum = BitwiseLib.bitArrayToString(valArr[0]);
+        return parseInt(sum);
+    }
+});
 
 test("bitsToString", () => {
 

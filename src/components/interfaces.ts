@@ -16,6 +16,7 @@ export interface ParameterSyntax {
     beginBit: number
     endBit: number
     type?: IO //Has to do with the PARENT module's IO
+    value?: boolean[]
 }
 
 export interface AnnotatedExpression {
