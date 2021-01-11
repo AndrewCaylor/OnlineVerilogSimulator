@@ -172,7 +172,8 @@ function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[]) {
         outputs: [],
         wires: [],
         annotatedExpressions: [],
-        nodes: [] //used later
+        nodes: [], //used later
+        subModules: [] //used later
     };
 
     obj.annotatedExpressions = annotatedExpressions;
@@ -468,6 +469,16 @@ export function elaborateModuleDict(moduleDict: ModuleDict): ModuleDict {
     return elaboratedModules;
 }
 
+export function compileVerilog(text){
+    let net = getBaseModules(text);
+    if(net.error){
+        //net is an error object
+        return net;
+    }
+    let elaborated = elaborateModuleDict(net);
+    return elaborated;
+}
+
 //BEGIN CODE FROM STACK OVERFLOW
 //https://stackoverflow.com/questions/23325832/parse-arithmetic-expression-with-javascript
 
@@ -584,6 +595,8 @@ Parser.prototype.parse = function (input) {
  
                     if (+token && (lastEntry == "<<" || lastEntry == ">>")) output.push(token);
                     else if(+token && (input[index] == "{")){
+                        //if <number>{  , then the number is being used as the DUPLICATE operator
+                        //the token needs to be altered to show that it is being used as an operator, not a numbetr
                         stack.unshift(token + "DUPLICATE")
                     }
                     else {

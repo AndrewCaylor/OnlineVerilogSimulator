@@ -151,6 +151,22 @@ sub {
   margin-right: 1em;
 }
 
+.btn-outline-secondary {
+  background-color: #16161c !important;
+  color: #ccc !important;
+}
+.btn-outline-secondary:hover {
+  background-color: #121212 !important;
+  color: white !important;
+}
+.btn-outline-secondary:focus {
+  background-color: #121212 !important;
+  box-shadow: none !important;
+}
+.btn-outline-secondary:active {
+  background-color: #121212 !important;
+  box-shadow: none !important;
+}
 body {
   background-color: #121212 !important;
   color: white !important;

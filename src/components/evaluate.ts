@@ -7,8 +7,16 @@ import { Module, IO, ParameterSyntax, AnnotatedExpression, Node, ENUM, Expressio
 
 export class Evaluator {
     moduleDict: ModuleDict;
+    mainModule: Module;
     constructor(moduleDict: ModuleDict) {
         this.moduleDict = moduleDict;
+    }
+
+    evaluate(moduleName: string, inputValues: boolean[][]): Module{
+        this.mainModule = clone(this.moduleDict[moduleName]);
+
+        this.evaluateModule(this.mainModule, inputValues, null)
+        return this.mainModule;
     }
 
     /**
@@ -150,7 +158,7 @@ export class Evaluator {
      * @param module 
      * @param inputs values must align with input syntax
      */
-    evaluateModule(module: Module, inputValues: boolean[][]): boolean[][] {
+    evaluateModule(module: Module, inputValues: boolean[][], parent: Module): boolean[][] {
         //create dict = dict + wires
         let IOandWires: BooleanDict = {};
         module.inputs.forEach((parameter, i) => {
@@ -224,7 +232,10 @@ export class Evaluator {
                                 values = valTemp;
                             }
                             else {
-                                values = this.evaluateModule(this.moduleDict[node.moduleName], inputValues);
+                                //passes in the current module as the parent
+                                //new children are cloned from a refrence from the dict
+                                let child = clone(this.moduleDict[node.moduleName]);
+                                values = this.evaluateModule(child, inputValues, module);
                             }
                             break;
                     }
@@ -290,7 +301,11 @@ export class Evaluator {
         module.outputs.forEach(parameter => {
             output.push(IOandWires[parameter.name]);
         });
-
+        module.IOandWireValues = clone(IOandWires);
+        //allows submodule to add itself to parent when done
+        if(parent){
+            parent.subModules.push(module);
+        }
 
         return output;
     }

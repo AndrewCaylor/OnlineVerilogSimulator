@@ -1,10 +1,5 @@
 <template>
   <div class="main">
-    <div>
-      <button type="button" class="btn btn-secondary" v-on:click="compile()">
-        Simulate!
-      </button>
-    </div>
     <div style="margin: 1rem">
       <prism-editor
         v-model="verilogCode"
@@ -70,9 +65,11 @@ export default {
       let a = BitwiseLib.binaryToBitArray("00001010");
       let b = BitwiseLib.binaryToBitArray("00001001");
 
-      let valArr = evaluator.evaluateModule(elaborated["arith"], [opcode, a, b]);
+      let evaledModule = evaluator.evaluate("arith", [opcode, a, b]);
 
-      console.log(valArr)
+      // let valArr = evaluator.evaluateModule(elaborated["arith"], [opcode, a, b]);
+
+      console.log(evaledModule.IOandWireValues);
 
       var e = new Date();
       var end = e.getTime();

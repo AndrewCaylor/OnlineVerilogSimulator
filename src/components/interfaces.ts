@@ -6,6 +6,8 @@ export interface Module {
     wires: ParameterSyntax[]
     annotatedExpressions: AnnotatedExpression[]
     nodes: Node[]
+    IOandWireValues?: BooleanDict
+    subModules?: Module[]
 }
 
 //null can be implied to be a wire
