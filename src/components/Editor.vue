@@ -1,5 +1,5 @@
 <template>
-  <div class="main" v-on:click="highlightLine()">
+  <div class="main" v-on:click="highlightLine()" @keyup="highlightLine">
     <div style="margin: 1rem">
       <prism-editor
         v-model="verilogCode"
@@ -45,15 +45,19 @@ export default {
       return highlight(code, languages.verilog); //returns html
     },
     highlightLine() {
+      //should only be one textarea for now
       let mainTextArea = document.getElementsByTagName("textarea")[0];
+      //line number the cursor is on
       let lineNumber = mainTextArea.value
         .substr(0, mainTextArea.selectionStart)
         .split("\n").length;
-        
+
+      //gets the line number elements
       let domElements = document.getElementsByClassName(
         "prism-editor__line-number"
       );
 
+      //edits the color attributes of the line number elements
       if (lineNumber != this.lastLineNumeber) {
         domElements[lineNumber - 1].style.color = "white";
         if (this.lastLineNumeber !== null)
