@@ -62,6 +62,7 @@
                 <input
                   type="text"
                   @keypress="validateText($event, input.name)"
+                  v-on:keyup="setLocalStorage()"
                   v-model="savedInputs[selectedModule][input.name]"
                   v-bind:class="{
                     darkRedBackground: !inputIsComplete(input.name),
@@ -135,6 +136,7 @@ import Collapse from ".//Collapse.vue";
 import * as BitwiseLib from ".//bitwiseLib";
 import { Evaluator } from ".//evaluate";
 let Console = console;
+// let Self;
 
 export default {
   name: "Simulate",
@@ -149,37 +151,85 @@ export default {
       evaluatedModule: null,
     };
   },
-  mounted() {
-    let text = window.localStorage.getItem("default");
-    let types = window.localStorage.getItem("types");
-    let inputs = window.localStorage.getItem("inputs");
-    this.modules = compileVerilog(text);
-
-    this.selectedModule = Object.keys(this.modules)[0];
-
-    if (!types || !inputs) {
-      types = {};
-      inputs = {};
-      Object.keys(this.modules).forEach((Module) => {
-        types[this.modules[Module].name] = {};
-        inputs[this.modules[Module].name] = {};
-        this.modules[Module].inputs.forEach((input) => {
-          types[this.modules[Module].name][input.name] = "bin";
-          inputs[this.modules[Module].name][input.name] = "";
-        });
-      });
-    }
-
-    this.savedTypes = types;
-    this.savedInputs = inputs;
+  beforeMount() {
+    this.initializeAndCorrect();
   },
   methods: {
+    initializeAndCorrect() {
+      let text = window.localStorage.getItem("default");
+      let types = window.localStorage.getItem("types");
+      let inputs = window.localStorage.getItem("inputs");
+      let selectedModule = window.localStorage.getItem("selectedModuleName");
+      this.modules = compileVerilog(text);
+
+      let selectedModuleFound = Object.keys(this.modules).find(
+        (name) => selectedModule == name
+      );
+
+      console.log(selectedModuleFound);
+      if (!selectedModuleFound) {
+        this.selectedModule = Object.keys(this.modules)[0];
+        this.setLocalStorage();
+      } else {
+        this.selectedModule = selectedModule;
+      }
+
+      console.log(this.selectedModule, Object.keys(this.modules));
+
+      if (!types || !inputs) {
+        //create starting point
+        this.savedTypes = {};
+        this.savedInputs = {};
+      } else {
+        this.savedTypes = JSON.parse(types);
+        this.savedInputs = JSON.parse(inputs);
+      }
+      //detect any missing types
+      Object.keys(this.modules).forEach((Module) => {
+        if (!this.savedTypes[this.selectedModule]) {
+          this.savedTypes[this.modules[Module].name] = {};
+        }
+        this.modules[Module].inputs.forEach((input) => {
+          if (
+            this.savedTypes[this.modules[Module].name][input.name] === undefined
+          ) {
+            this.savedTypes[this.modules[Module].name][input.name] = "bin";
+          }
+        });
+      });
+      //detect any missing inputs
+      Object.keys(this.modules).forEach((Module) => {
+        if (!this.savedInputs[this.selectedModule]) {
+          this.savedInputs[this.modules[Module].name] = {};
+        }
+        this.modules[Module].inputs.forEach((input) => {
+          if (
+            this.savedInputs[this.modules[Module].name][input.name] ===
+            undefined
+          ) {
+            this.savedInputs[this.modules[Module].name][input.name] = "";
+          }
+        });
+      });
+
+      this.setLocalStorage();
+    },
     setSelectedModule(input) {
+      console.log("trying", input);
       this.selectedModule = input;
+      this.setLocalStorage();
+
+      this.initializeAndCorrect();
+    },
+    setLocalStorage() {
+      window.localStorage.setItem("selectedModuleName", this.selectedModule);
+      window.localStorage.setItem("types", JSON.stringify(this.savedTypes));
+      window.localStorage.setItem("inputs", JSON.stringify(this.savedInputs));
     },
     setSelectedType(input, name) {
       this.savedTypes[this.selectedModule][name] = input;
       this.savedInputs[this.selectedModule][name] = "";
+      this.setLocalStorage();
     },
     compile() {
       var d = new Date();
@@ -219,6 +269,8 @@ export default {
       var e = new Date();
       var end = e.getTime();
       Console.log("time to compile: ", end - start); //approx 2-30ms
+
+      this.setLocalStorage();
     },
     validateText(event, parameterName) {
       let type = this.savedTypes[this.selectedModule][parameterName];

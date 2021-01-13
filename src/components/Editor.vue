@@ -19,9 +19,9 @@ import { highlight, languages } from "prismjs/components/prism-core";
 import "prismjs/components/prism-verilog";
 import "prismjs/themes/prism-tomorrow.css"; // import syntax highlighting styles
 
-import * as util from ".//generateNodeNetwork.ts";
-import * as BitwiseLib from ".//bitwiseLib";
-import { Evaluator } from ".//evaluate";
+// import * as util from ".//generateNodeNetwork.ts";
+// import * as BitwiseLib from ".//bitwiseLib";
+// import { Evaluator } from ".//evaluate";
 
 export default {
   components: { PrismEditor },
@@ -37,48 +37,15 @@ export default {
   },
   methods: {
     highlighter(code) {
+      //this module runs whenever a character is typed in the prismjs textbox
+      //This is used for prismjs, but also i use it for updating the code in localstorage
+      window.localStorage.setItem("default", this.verilogCode);
       return highlight(code, languages.verilog); //returns html
     },
-    compile() {
-      var d = new Date();
-      var start = d.getTime();
-
-      let net = util.getBaseModules(this.verilogCode);
-
-      console.log(net);
-
-      let elaborated = util.elaborateModuleDict(net);
-
-      console.log(elaborated);
-
-      // net = JSON.parse(JSON.stringify(net));
-
-      // console.log(JSON.stringify(net["ssd"].callSyntax[1]));
-      // console.log(net["ssd"].callSyntax[1]);
-      // console.log(net)
-      // let elaborated1 = util.elaborateModuleDict(net);
-      // console.log(elaborated1);
-
-      let evaluator = new Evaluator(elaborated);
-
-      let opcode = BitwiseLib.binaryToBitArray("0100");
-      let a = BitwiseLib.binaryToBitArray("00001010");
-      let b = BitwiseLib.binaryToBitArray("00001001");
-
-      let evaledModule = evaluator.evaluate("arith", [opcode, a, b]);
-
-      // let valArr = evaluator.evaluateModule(elaborated["arith"], [opcode, a, b]);
-
-      console.log(evaledModule.IOandWireValues);
-
-      var e = new Date();
-      var end = e.getTime();
-      console.log("time to compile: ", end - start); //approx 12ms
-    },
   },
-  mounted() {
+  beforeMount() {
     this.verilogCode = window.localStorage.getItem("default");
-    this.compile();
+    // this.compile();
   },
 };
 </script>
