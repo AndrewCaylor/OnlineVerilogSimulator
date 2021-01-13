@@ -18,6 +18,8 @@ test("ssd0", () => {
 
     let valArr = evaluator.evaluateModule(elaboratedModules["ssd0"], boolArrArr);
 
+    console.log(evaluator.evaluate("ssd0", boolArrArr));
+
     expect("1000000").toEqual(BitwiseLib.bitArrayToString(valArr[0], 2)); //in my documentation for LEE3 values are reversed
 });
 

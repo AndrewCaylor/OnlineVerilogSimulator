@@ -25,17 +25,15 @@
 </body>
 
 <style>
-    pre span {
-        overflow-x: hidden !important;
-        white-space: nowrap !important;
-    }
+    /* forcing editor lib to take up whole width  
+    this thing was nice but HOLY FRIG it was a pain to iron out the bugs*/
     
-    textarea {
-        width: 100vw;
+    .prism-editor-wrapper .prism-editor__container {
+        width: 100vw !important;
     }
+    /* so the text doesn't wrap */
     
     pre {
-        /* overflow: auto; */
         display: inline !important;
         white-space: pre !important;
     }

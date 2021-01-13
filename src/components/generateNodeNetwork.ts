@@ -1,6 +1,14 @@
 /*eslint-disable*/
 var Lexer = require("lex");
 
+//easier debug
+function log(message: string, stuff: any) {
+    let debug = false;
+    if (debug) {
+        console.log(message, stuff)
+    }
+}
+
 //importing interfaces
 import { Module, ParameterSyntax, AnnotatedExpression, Node, ENUM, Error, ModuleDict } from "./interfaces";
 
@@ -155,6 +163,7 @@ export function getBaseModules(text: string): ModuleDict | any {
         }
     }
 
+    log("base modules", moduleDict)
     return moduleDict;
 }
 
@@ -403,6 +412,7 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
                         node.inputs = node.callSyntax.slice(1);
                     }
                     else {
+                        console.log("Module name not found: ", node.moduleName)
                         return null;
                     }
                 }
@@ -452,6 +462,8 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
             return [num, num]
         }
     }
+
+    log("elaborated module obj", obj)
     return obj;
 }
 
@@ -466,12 +478,14 @@ export function elaborateModuleDict(moduleDict: ModuleDict): ModuleDict {
         elaboratedModules[key] = elaborateModuleObj(moduleDict[key], moduleDict)
     });
 
+    log("elaborated modules", elaboratedModules);
+
     return elaboratedModules;
 }
 
-export function compileVerilog(text){
+export function compileVerilog(text) {
     let net = getBaseModules(text);
-    if(net.error){
+    if (net.error) {
         //net is an error object
         return net;
     }
@@ -592,9 +606,9 @@ Parser.prototype.parse = function (input) {
                     let lastEntry = stack[stack.length - 1];
                     //if the number is being used as an operand for bit shifting, 
                     //instead of being used as an operator for duplication
- 
+
                     if (+token && (lastEntry == "<<" || lastEntry == ">>")) output.push(token);
-                    else if(+token && (input[index] == "{")){
+                    else if (+token && (input[index] == "{")) {
                         //if <number>{  , then the number is being used as the DUPLICATE operator
                         //the token needs to be altered to show that it is being used as an operator, not a numbetr
                         stack.unshift(token + "DUPLICATE")

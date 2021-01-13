@@ -15,7 +15,7 @@ export class Evaluator {
     evaluate(moduleName: string, inputValues: boolean[][]): Module {
         this.mainModule = clone(this.moduleDict[moduleName]);
 
-        this.evaluateModule(this.mainModule, inputValues, null)
+        this.evaluateModule(this.mainModule, inputValues, null);
         this.elaborateSubModules(this.mainModule);
 
         return this.mainModule;
@@ -218,7 +218,7 @@ export class Evaluator {
                     let valueObj = IOandWires[parameter.name];
                     //if the prameter is a const, then the parameter will be evalueated by definitio
                     if (parameter.type != "CONST") {
-                        for (let j = 0; j < valueObj.length; j++) {
+                        for (let j = parameter.beginBit; j <= parameter.endBit; j++) {
                             if (valueObj[j] === null) {
                                 allParametesEvaluated = false;
                                 break outer;
@@ -278,6 +278,7 @@ export class Evaluator {
                         for (let bitInd = output.beginBit; bitInd <= output.endBit; bitInd++) {
                             let valueToFillBit = valueToFill[bitInd];
                             if (valueToFillBit !== null) {
+                                console.log("bit already assigned to")
                                 return null; //bit already assigned to
                             }
                             IOandWires[output.name][bitInd] = values[i][valueBitInd];
@@ -319,6 +320,9 @@ export class Evaluator {
 
             if (initialLength == nodesNotEvaluated.length) {
                 console.log("no nodes were able to be evaluated this loop so that means that there is an error in syntax");
+                console.log(module.name)
+                console.log(nodesNotEvaluated)
+                console.log(IOandWires)
                 return null;
             }
         }

@@ -166,15 +166,12 @@ export default {
         (name) => selectedModule == name
       );
 
-      console.log(selectedModuleFound);
       if (!selectedModuleFound) {
         this.selectedModule = Object.keys(this.modules)[0];
         this.setLocalStorage();
       } else {
         this.selectedModule = selectedModule;
       }
-
-      console.log(this.selectedModule, Object.keys(this.modules));
 
       if (!types || !inputs) {
         //create starting point
@@ -186,8 +183,9 @@ export default {
       }
       //detect any missing types
       Object.keys(this.modules).forEach((Module) => {
-        if (!this.savedTypes[this.selectedModule]) {
-          this.savedTypes[this.modules[Module].name] = {};
+
+        if (!this.savedTypes[Module]) {
+          this.savedTypes[Module] = {};
         }
         this.modules[Module].inputs.forEach((input) => {
           if (
@@ -199,8 +197,8 @@ export default {
       });
       //detect any missing inputs
       Object.keys(this.modules).forEach((Module) => {
-        if (!this.savedInputs[this.selectedModule]) {
-          this.savedInputs[this.modules[Module].name] = {};
+        if (!this.savedInputs[Module]) {
+          this.savedInputs[Module] = {};
         }
         this.modules[Module].inputs.forEach((input) => {
           if (
@@ -444,6 +442,7 @@ input:focus {
     color: white !important;
   }
 }
+
 @import "~bootstrap/scss/bootstrap.scss";
 @import "~bootstrap-vue/src/index.scss";
 </style>
