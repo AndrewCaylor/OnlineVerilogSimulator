@@ -1,6 +1,6 @@
 /* eslint-disable no-case-declarations */
 import * as BitwiseLib from "./bitwiseLib";
-import {clone} from "./generateNodeNetwork";
+import { clone } from "./generateNodeNetwork";
 
 // import { elaborateModules } from "./generateNodeNetwork";
 import { Module, IO, ParameterSyntax, AnnotatedExpression, Node, ENUM, ExpressionType, BooleanDict, Error, ModuleDict } from "./interfaces";
@@ -12,11 +12,37 @@ export class Evaluator {
         this.moduleDict = moduleDict;
     }
 
-    evaluate(moduleName: string, inputValues: boolean[][]): Module{
+    evaluate(moduleName: string, inputValues: boolean[][]): Module {
         this.mainModule = clone(this.moduleDict[moduleName]);
 
         this.evaluateModule(this.mainModule, inputValues, null)
+        this.elaborateSubModules(this.mainModule);
+
         return this.mainModule;
+    }
+
+    private elaborateSubModules(parent: Module) {
+        let subModuleInd = 0;
+        if (parent.subModules.length == 0) return;
+
+        for (let i = 0; i < parent.nodes.length; i++) {
+            const node = parent.nodes[i];
+            if (node.type == 1) {
+                let isPrimitive = !!BitwiseLib.getBitwiseNotation(node.moduleName);
+                if (!isPrimitive) {
+                    parent.subModules[subModuleInd].instanceName = node.instanceName;
+                    parent.subModules[subModuleInd].parentInputs = node.inputs;
+                    parent.subModules[subModuleInd].parentOutputs = node.outputs;
+
+                    this.elaborateSubModules(parent.subModules[subModuleInd]);
+                    subModuleInd++;
+
+                    if (parent.subModules.length < subModuleInd) {
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -75,7 +101,7 @@ export class Evaluator {
      */
     public evaluateStack(context: BooleanDict, tokens: string[]): boolean[] {
         let stack: any[] = [];
-        
+
 
         for (let i = 0; i < tokens.length; i++) {
             const token = tokens[i];
@@ -105,7 +131,7 @@ export class Evaluator {
                 default:
                     //TODO: detect hex, octal and convert to binary
                     //then convert to bit array and push to stack
-                    if(token.match(/DUPLICATE/)){
+                    if (token.match(/DUPLICATE/)) {
                         a = stack.pop();
                         let num = token.match(/\d+/)[0];
                         stack.push(BitwiseLib.Operators["DUPLICATE"](a, parseInt(num)));
@@ -117,7 +143,7 @@ export class Evaluator {
                             stack.push(BitwiseLib.stringToBitArray(token));
                         }
                     }
-                    else if(BitwiseLib.isVerilogNumber(token)){
+                    else if (BitwiseLib.isVerilogNumber(token)) {
                         stack.push(BitwiseLib.stringToBitArray(token));
                     } else {
 
@@ -161,6 +187,7 @@ export class Evaluator {
     evaluateModule(module: Module, inputValues: boolean[][], parent: Module): boolean[][] {
         //create dict = dict + wires
         let IOandWires: BooleanDict = {};
+        //inputs first, then outputs, then wires
         module.inputs.forEach((parameter, i) => {
             IOandWires[parameter.name] = inputValues[i];
         });
@@ -290,7 +317,7 @@ export class Evaluator {
             //     }
             // }
 
-            if(initialLength == nodesNotEvaluated.length){
+            if (initialLength == nodesNotEvaluated.length) {
                 console.log("no nodes were able to be evaluated this loop so that means that there is an error in syntax");
                 return null;
             }
@@ -303,7 +330,7 @@ export class Evaluator {
         });
         module.IOandWireValues = clone(IOandWires);
         //allows submodule to add itself to parent when done
-        if(parent){
+        if (parent) {
             parent.subModules.push(module);
         }
 

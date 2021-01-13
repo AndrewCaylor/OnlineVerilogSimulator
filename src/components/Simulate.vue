@@ -63,6 +63,9 @@
                   type="text"
                   @keypress="validateText($event, input.name)"
                   v-model="savedInputs[selectedModule][input.name]"
+                  v-bind:class="{
+                    darkRedBackground: !inputIsComplete(input.name),
+                  }"
                 />
                 <!-- <i class="bi bi-gear-fill" data-toggle="dropdown"></i> -->
                 <button
@@ -98,39 +101,52 @@
           </div>
         </div>
 
-        <div style="text-align: center; border-top: 1px solid #999; margin-top: 1rem; padding-top: 1rem">
+        <div
+          style="
+            text-align: center;
+            border-top: 1px solid #999;
+            margin-top: 1rem;
+            padding-top: 1rem;
+          "
+        >
           <button
             type="button"
-            data-toggle="dropdown"
             class="btn btn-outline-secondary btn-lg"
             style="margin: auto"
+            v-on:click="compile()"
           >
             Simulate!
           </button>
         </div>
       </div>
     </div>
-    <div style="width: 70%">
-      <div class="obj">stuff and things</div>
+    <div style="width: 100%">
+      <div class="obj" v-if="evaluatedModule">
+        <Collapse :moduleData="evaluatedModule" :showInit="true" />
+      </div>
     </div>
   </div>
 </template>
 
 <script>
 import { compileVerilog } from ".//generateNodeNetwork.ts";
+import Collapse from ".//Collapse.vue";
 // import { parse } from "./generateNodeNetwork";
-// import * as BitwiseLib from ".//bitwiseLib";
-// import { Evaluator } from ".//evaluate";
+import * as BitwiseLib from ".//bitwiseLib";
+import { Evaluator } from ".//evaluate";
+let Console = console;
 
 export default {
   name: "Simulate",
-  components: {},
+  components: { Collapse },
   data() {
+    Collapse;
     return {
       modules: {},
       selectedModule: null,
       savedInputs: {},
       savedTypes: {},
+      evaluatedModule: null,
     };
   },
   mounted() {
@@ -164,6 +180,45 @@ export default {
     setSelectedType(input, name) {
       this.savedTypes[this.selectedModule][name] = input;
       this.savedInputs[this.selectedModule][name] = "";
+    },
+    compile() {
+      var d = new Date();
+      var start = d.getTime();
+
+      let evaluator = new Evaluator(this.modules);
+
+      let inputArr = [];
+      Object.keys(this.savedInputs[this.selectedModule]).forEach((ele) => {
+        const text = this.savedInputs[this.selectedModule][ele];
+        const inputType = this.savedTypes[this.selectedModule][ele];
+        const parameter = this.modules[this.selectedModule].inputs.find(
+          (param) => param.name == ele
+        );
+
+        let binText;
+        switch (inputType) {
+          case "bin":
+            binText = text;
+            break;
+          case "hex":
+            binText = parseInt(text, 16).toString(2);
+            break;
+          case "dec":
+            binText = parseInt(text, 10).toString(2);
+            break;
+        }
+        let boolArr = BitwiseLib.binaryToBitArray(binText);
+        while (boolArr.length < parameter.endBit - parameter.beginBit + 1)
+          boolArr.push(false);
+        inputArr.push(boolArr);
+      });
+      this.evaluatedModule = evaluator.evaluate(this.selectedModule, inputArr);
+
+      console.log(this.evaluatedModule);
+
+      var e = new Date();
+      var end = e.getTime();
+      Console.log("time to compile: ", end - start); //approx 2-30ms
     },
     validateText(event, parameterName) {
       let type = this.savedTypes[this.selectedModule][parameterName];
@@ -204,15 +259,28 @@ export default {
         }
       }
     },
+    //similar to above but simpler
+    inputIsComplete(parameterName) {
+      let type = this.savedTypes[this.selectedModule][parameterName];
+      //dont worry about dec numbers
+      if (type == "dec") {
+        return true;
+      }
+      let parameterSyntax = this.modules[this.selectedModule].inputs.find(
+        (input) => input.name == parameterName
+      );
+
+      let bitLength = parameterSyntax.endBit - parameterSyntax.beginBit + 1;
+      let currentText = this.savedInputs[this.selectedModule][parameterName];
+      let textLength = currentText.length;
+      if (type == "hex") textLength *= 4;
+      return textLength >= bitLength;
+    },
   },
 };
 </script>
 
 <style scoped lang="scss">
-.redBackground {
-  background-color: #200000 !important;
-}
-
 .myContainer {
   display: flex;
   @extend .myText;
@@ -227,6 +295,10 @@ export default {
       }
     }
   }
+}
+
+.darkRedBackground {
+  background-color: #300000 !important;
 }
 
 .myText {
@@ -276,7 +348,7 @@ input:focus {
   width: inherit;
   height: 80vh;
   position: sticky;
-  top: 5rem;
+  top: 6rem;
   padding-left: 2rem;
   padding-right: 2rem;
   // font-weight: 300;
@@ -296,7 +368,9 @@ input:focus {
 
 .obj {
   @extend .box;
+  @extend .myText;
   min-width: 300px;
+  padding: 1rem;
   margin-left: 3rem;
 }
 

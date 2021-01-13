@@ -97,25 +97,24 @@ export default {
 <style lang="scss" scoped>
 @import "~bootstrap/scss/bootstrap.scss";
 
+.bi:hover {
+  color: white;
+}
 button {
   font-family: Arial, Helvetica, sans-serif;
 }
 </style>
 
 <style lang="scss">
+.bi {
+  color: #999;
+  transition: all 0.15s;
+  display: inline-block;
+}
+
 sub {
   color: #999;
   font-size: small !important;
-}
-
-.bi-github {
-  font-size: 2em;
-  color: #999;
-  transition: color 0.15s;
-}
-
-.bi-github:hover {
-  color: white;
 }
 
 .myNav {

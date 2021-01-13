@@ -8,6 +8,10 @@ export interface Module {
     nodes: Node[]
     IOandWireValues?: BooleanDict
     subModules?: Module[]
+    //used for UI displaying
+    instanceName?: string
+    parentInputs?: ParameterSyntax[]
+    parentOutputs?: ParameterSyntax[]
 }
 
 //null can be implied to be a wire
