@@ -1,7 +1,7 @@
 # Online Verilog Simulator!
 Simulates verilog online
 
-## Link to diagram explaining structure
-https://drive.google.com/drive/folders/1cRqbwXOXs-ZKAG9j83aWozdyGIXvzscr?usp=sharing
+It compiles and simulates verilog files!
 
-:) Skylar wuz here
+Verilog Language Refrence:
+https://sutherland-hdl.com/pdfs/verilog_2001_ref_guide.pdf
