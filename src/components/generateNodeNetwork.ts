@@ -5,12 +5,13 @@ var Lexer = require("lex");
 function log(message: string, stuff: any) {
     let debug = false;
     if (debug) {
+        stuff = JSON.parse(JSON.stringify(stuff));
         console.log(message, stuff)
     }
 }
 
 //importing interfaces
-import { Module, ParameterSyntax, AnnotatedExpression, Node, ENUM, Error, ModuleDict } from "./interfaces";
+import { Module, ParameterSyntax, AnnotatedExpression, Node, ENUM, ModuleDictReturn, ModuleDict, CompileError } from "./interfaces";
 
 import * as BitwiseLib from ".//bitwiseLib"
 
@@ -37,19 +38,19 @@ function isModuleDeclaration(text) {
 }
 function isWireDeclaration(text) {
     return (
-        (text.match(/wire\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+$)/g) || [])
+        (text.match(/wire\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+)/g) || [])
             .length == 1
     );
 }
 function isInputDeclaration(text) {
     return (
-        (text.match(/input\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+$)/g) || [])
+        (text.match(/input\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+)/g) || [])
             .length == 1
     );
 }
 function isOutputDeclaration(text) {
     return (
-        (text.match(/output\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+$)/g) || [])
+        (text.match(/output\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+)/g) || [])
             .length == 1
     );
 }
@@ -85,33 +86,62 @@ export function getExpressionType(text) {
  * TODO: do something with errors
  * @param text all the code the user wants to compile
  */
-export function getBaseModules(text: string): ModuleDict | any {
+export function getBaseModules(text: string): ModuleDictReturn {
+
+    let returnVal: ModuleDictReturn = {
+        failed: null,
+        error: {
+            message: null,
+            lineNumber: null,
+            errorData: null
+        },
+        data: {}
+    }
 
     //removes single line comments
     text = text.replace(/(\/\/).*/g, "");
     //removes multiline line comments
-    text = text.replace(/(\/\*)(.|\n)*(\*\/)/g, "");
-    text = text.replace(/\n/g, " ");
-    if (true) {
-        text = text.replace(/\s+/, " ")
-    }
+    text = text.replace(/(\/\*)(.|\n)*(\*\/)/g, (match) => {
+        return "\n".repeat(match.match(/\n/g).length);
+    });
 
+    let textArray: string[] = text.split("\n");
     let annotatedExpressions: AnnotatedExpression[] = []; //TODO: should also include information about the error
-    let expressions: string[] = text.replace(/endmodule/g, "endmodule;").split(";"); //make sure there is a ; at every line and the split
 
-    expressions.forEach((expression) => {
+    //fills the annotaed expressions array
+    let expressionText = "";
+    textArray.forEach((expression, i) => {
+        let removedWhiteSpace = expression.replace(/\s+/g, "");
         expression = expression.trim();
-        annotatedExpressions.push({
-            "expression": expression,
-            type: getExpressionType(expression)
-        });
+        if (removedWhiteSpace) {
+            if(expression[expression.length - 1] == ";"){
+                //do not include semicolon
+                expressionText += expression.substr(0, expression.length - 1);
+                annotatedExpressions.push({
+                    "expression": expressionText,
+                    type: getExpressionType(expressionText),
+                    lineNumber: i + 1
+                });
+                expressionText = "";
+            }
+            else if(expression == "endmodule"){
+                annotatedExpressions.push({
+                    "expression": expression,
+                    type: ENUM.Endmodule,
+                    lineNumber: i + 1
+                });
+            }
+            else{
+                expressionText += expression.substr(0, expression.length);
+            }
+        }
     });
 
     let state = null;
     let moduleContent: AnnotatedExpression[] = [];
-    let moduleDict: ModuleDict = {};
-
-    let errors: Error[] = [];
+    //will edit parent obj
+    let moduleDict: ModuleDict = returnVal.data;
+    let error: CompileError = returnVal.error;
 
     //TODO: collect info about all line failures and not just return first one (or not?)
 
@@ -125,11 +155,11 @@ export function getBaseModules(text: string): ModuleDict | any {
                     state = "parsingModule";
                     moduleContent.push(annotatedExpressions[i]);
                 } else {
-                    return {
-                        failed: true,
-                        data: annotatedExpressions[i],
-                        error: "Previous module not closed with endmodule",
-                    };
+                    returnVal.failed = true;
+                    error.message = "Previous module not closed with endmodule";
+                    error.errorData = annotatedExpressions[i];
+                    error.lineNumber = null;
+                    return returnVal;
                 }
                 break;
 
@@ -141,20 +171,21 @@ export function getBaseModules(text: string): ModuleDict | any {
                     moduleContent = [];
                     state = null;
                 } else {
-                    return {
-                        failed: true,
-                        data: annotatedExpressions[i],
-                        error: "Extra endmodule statement",
-                    };
+                    returnVal.failed = true;
+                    error.message = "Extra endmodule statment";
+                    error.errorData = annotatedExpressions[i];
+                    error.lineNumber = null;
+                    return returnVal;
                 }
                 break;
 
             case null:
                 //will be null if there was a syntax error in that line
-                errors.push({
-                    data: annotatedExpressions[i],
-                    error: "Syntax Error",
-                });
+                returnVal.failed = true;
+                error.message = "Uknown or invalid syntax";
+                error.errorData = annotatedExpressions[i];
+                error.lineNumber = null;
+                return returnVal;
 
             default:
                 moduleContent.push(annotatedExpressions[i]);
@@ -164,7 +195,7 @@ export function getBaseModules(text: string): ModuleDict | any {
     }
 
     log("base modules", moduleDict)
-    return moduleDict;
+    return returnVal;
 }
 
 
@@ -484,7 +515,7 @@ export function elaborateModuleDict(moduleDict: ModuleDict): ModuleDict {
 }
 
 export function compileVerilog(text) {
-    let net = getBaseModules(text);
+    let net = getBaseModules(text).data;
     if (net.error) {
         //net is an error object
         return net;

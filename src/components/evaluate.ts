@@ -3,7 +3,7 @@ import * as BitwiseLib from "./bitwiseLib";
 import { clone } from "./generateNodeNetwork";
 
 // import { elaborateModules } from "./generateNodeNetwork";
-import { Module, IO, ParameterSyntax, AnnotatedExpression, Node, ENUM, ExpressionType, BooleanDict, Error, ModuleDict } from "./interfaces";
+import { Module, IO, ParameterSyntax, AnnotatedExpression, Node, ENUM, ExpressionType, BooleanDict, ModuleDict } from "./interfaces";
 
 export class Evaluator {
     moduleDict: ModuleDict;

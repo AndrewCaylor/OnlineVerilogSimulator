@@ -28,6 +28,7 @@ export interface ParameterSyntax {
 export interface AnnotatedExpression {
     expression: string
     type: ExpressionType
+    lineNumber: number
 }
 
 export interface Node {
@@ -53,11 +54,6 @@ export enum ENUM {
 //probably a better way to do this
 export type ExpressionType = ENUM.ModuleDeclaration | ENUM.ModuleUsage | ENUM.Input | ENUM.Output | ENUM.Wire | ENUM.Assign | ENUM.Endmodule | null;
 
-export interface Error {
-    data: any
-    error: string
-}
-
 export interface BooleanDict {
     [name: string]: boolean[]
 }
@@ -68,4 +64,22 @@ export interface ParameterDict {
 
 export interface ModuleDict {
     [name: string]: Module
+}
+
+export interface CompileError{
+    message: string
+    lineNumber: number
+    errorData: any
+}
+
+export interface ModuleReturn {
+    failed: boolean
+    errors: CompileError
+    data: Module
+}
+
+export interface ModuleDictReturn {
+    failed: boolean
+    error: CompileError
+    data: ModuleDict
 }
