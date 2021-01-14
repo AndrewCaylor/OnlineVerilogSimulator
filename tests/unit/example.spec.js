@@ -8,7 +8,7 @@ import * as testCode from "../testCode"
 //TODO: cycle through each 
 test("ssd0", () => {
 
-    let baseModules = Generator.getBaseModules(testCode.code1);
+    let baseModules = Generator.getBaseModules(testCode.code1).data;
     let elaboratedModules = Generator.elaborateModuleDict(baseModules);
 
     let boolArrArr = [];
@@ -25,7 +25,7 @@ test("ssd0", () => {
 
 test("pls", () => {
 
-    let baseModules = Generator.getBaseModules(testCode.code3);
+    let baseModules = Generator.getBaseModules(testCode.code3).data;
     let elaboratedModules = Generator.elaborateModuleDict(baseModules);
 
     let boolArrArr = [];
@@ -39,7 +39,7 @@ test("pls", () => {
 });
 
 test("arith", () => {
-    let baseModules = Generator.getBaseModules(testCode.code2);
+    let baseModules = Generator.getBaseModules(testCode.code2).data;
 
     let elaboratedModules = Generator.elaborateModuleDict(baseModules);
     let evaluator = new Evaluator(elaboratedModules);
