@@ -8,6 +8,9 @@
         class="myEditor"
       ></prism-editor>
     </div>
+    <template v-if="showError">
+      <ErrorPopup :errorObj="errorData"/>
+    </template>
   </div>
 </template>
 
@@ -19,7 +22,9 @@ import { highlight, languages } from "prismjs/components/prism-core";
 import "prismjs/components/prism-verilog";
 import "prismjs/themes/prism-tomorrow.css"; // import syntax highlighting styles
 
-// import * as util from ".//generateNodeNetwork.ts";
+// import ErrorPopup from "./ErrorPopup";
+
+import * as util from ".//generateNodeNetwork.ts";
 // import * as BitwiseLib from ".//bitwiseLib";
 // import { Evaluator } from ".//evaluate";
 import { defaultCode } from ".//defaultCode";
@@ -35,9 +40,21 @@ export default {
       editorRows: 1,
       globalModules: [],
       lastLineNumeber: null, //a number
+      showError: false,
+      errorData: null,
     };
   },
   methods: {
+    compile() {
+      let data = util.compileVerilog(this.verilogCode);
+
+      if (data.failed) {
+        this.errorData = data.error;
+      }
+      this.showError = data.failed;
+
+      console.log(data, data.failed);
+    },
     highlighter(code) {
       //this module runs whenever a character is typed in the prismjs textbox
       //This is used for prismjs, but also i use it for updating the code in localstorage
@@ -64,6 +81,8 @@ export default {
           domElements[this.lastLineNumeber - 1].style.color = "#999";
         this.lastLineNumeber = lineNumber;
       }
+
+      this.compile();
     },
   },
   beforeMount() {
@@ -72,7 +91,7 @@ export default {
     if (!this.verilogCode) {
       this.verilogCode = defaultCode;
     }
-    // this.compile();
+    this.compile();
   },
 };
 </script>

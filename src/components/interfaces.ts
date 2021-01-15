@@ -74,7 +74,7 @@ export interface CompileError{
 
 export interface ModuleReturn {
     failed: boolean
-    errors: CompileError
+    error: CompileError
     data: Module
 }
 
