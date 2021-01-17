@@ -138,9 +138,12 @@ import { Evaluator } from ".//evaluate";
 let Console = console;
 // let Self;
 
+let Self;
+
 export default {
   name: "Simulate",
   components: { Collapse },
+  props: { isVisible: null },
   data() {
     Collapse;
     return {
@@ -153,6 +156,16 @@ export default {
   },
   beforeMount() {
     this.initializeAndCorrect();
+    Self = this;
+  },
+  watch: {
+    isVisible: () => {
+      //refresh every time it becomes visible agiain
+      if (Self) {
+        //will run on mount before self is defined. also this does not refer to right this
+        Self.initializeAndCorrect();
+      }
+    },
   },
   methods: {
     initializeAndCorrect() {
@@ -183,7 +196,6 @@ export default {
       }
       //detect any missing types
       Object.keys(this.modules).forEach((Module) => {
-
         if (!this.savedTypes[Module]) {
           this.savedTypes[Module] = {};
         }
@@ -258,7 +270,10 @@ export default {
           boolArr.push(false);
         inputArr.push(boolArr);
       });
-      this.evaluatedModule = evaluator.evaluate(this.selectedModule, inputArr).data;
+      this.evaluatedModule = evaluator.evaluate(
+        this.selectedModule,
+        inputArr
+      ).data;
 
       console.log(this.evaluatedModule);
 

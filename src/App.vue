@@ -46,11 +46,11 @@
     <!-- fills in for position fixed nav -->
     <div style="height: 5rem"></div>
 
-    <div v-if="showEditor">
+    <div v-bind:class="{hidden: !showEditor}">
       <Editor />
     </div>
-    <div v-else>
-      <Simulate />
+    <div v-bind:class="{hidden: showEditor}">
+      <Simulate :isVisible="!showEditor" />
     </div>
   </div>
 </template>
@@ -186,5 +186,13 @@ body {
   text-align: center;
 
   height: 100%;
+}
+
+.hidden{
+  //hide and remove from dom flow
+  visibility: hidden;
+  position: fixed;
+  //put at back just incase
+  z-index: 0;
 }
 </style>
