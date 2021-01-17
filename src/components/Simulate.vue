@@ -160,7 +160,7 @@ export default {
       let types = window.localStorage.getItem("types");
       let inputs = window.localStorage.getItem("inputs");
       let selectedModule = window.localStorage.getItem("selectedModuleName");
-      this.modules = compileVerilog(text);
+      this.modules = compileVerilog(text).data;
 
       let selectedModuleFound = Object.keys(this.modules).find(
         (name) => selectedModule == name
@@ -213,10 +213,8 @@ export default {
       this.setLocalStorage();
     },
     setSelectedModule(input) {
-      console.log("trying", input);
       this.selectedModule = input;
       this.setLocalStorage();
-
       this.initializeAndCorrect();
     },
     setLocalStorage() {
@@ -260,7 +258,7 @@ export default {
           boolArr.push(false);
         inputArr.push(boolArr);
       });
-      this.evaluatedModule = evaluator.evaluate(this.selectedModule, inputArr);
+      this.evaluatedModule = evaluator.evaluate(this.selectedModule, inputArr).data;
 
       console.log(this.evaluatedModule);
 
@@ -353,7 +351,7 @@ export default {
 
 .myText {
   color: #ccc;
-  font-family: "Courier New", Courier, monospace;
+  font-family: Consolas, monospace;
 }
 
 .myFlex {
@@ -368,7 +366,7 @@ input {
   border-radius: 0.25rem;
   background-color: #121212;
   margin-bottom: 1rem;
-  font-family: "Courier New", Courier, monospace !important;
+  font-family: monospace !important;
 }
 input:focus {
   outline: none;

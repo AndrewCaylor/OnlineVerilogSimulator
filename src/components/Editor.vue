@@ -9,7 +9,7 @@
       ></prism-editor>
     </div>
     <template v-if="showError">
-      <ErrorPopup :errorObj="errorData"/>
+      <ErrorPopup :errorObj="errorData" />
     </template>
   </div>
 </template>
@@ -22,18 +22,18 @@ import { highlight, languages } from "prismjs/components/prism-core";
 import "prismjs/components/prism-verilog";
 import "prismjs/themes/prism-tomorrow.css"; // import syntax highlighting styles
 
-// import ErrorPopup from "./ErrorPopup";
+import ErrorPopup from "./ErrorPopup";
 
-import * as util from ".//generateNodeNetwork.ts";
+// import * as util from ".//generateNodeNetwork.ts";
 // import * as BitwiseLib from ".//bitwiseLib";
-// import { Evaluator } from ".//evaluate";
+import { getError } from ".//evaluate";
 import { defaultCode } from ".//defaultCode";
 
 export default {
-  components: { PrismEditor },
+  components: { PrismEditor, ErrorPopup },
   name: "Editor",
   idCounter: 0,
-  props: {},
+  props: ['isCompileError'],
   data() {
     return {
       verilogCode: "",
@@ -45,15 +45,16 @@ export default {
     };
   },
   methods: {
-    compile() {
-      let data = util.compileVerilog(this.verilogCode);
-
-      if (data.failed) {
-        this.errorData = data.error;
+    showErrorIfError() {
+      let error = getError(this.verilogCode);
+      if (error) {
+        this.errorData = error;
+        console.log("SHOW ERROR IF ERROR RAN::: ", error.message);
+      } else {
+        console.log("no error");
       }
-      this.showError = data.failed;
-
-      console.log(data, data.failed);
+      this.showError = !!error;
+      this.$emit("isCompileError", this.showError);
     },
     highlighter(code) {
       //this module runs whenever a character is typed in the prismjs textbox
@@ -82,7 +83,7 @@ export default {
         this.lastLineNumeber = lineNumber;
       }
 
-      this.compile();
+      this.showErrorIfError();
     },
   },
   beforeMount() {
@@ -91,7 +92,7 @@ export default {
     if (!this.verilogCode) {
       this.verilogCode = defaultCode;
     }
-    this.compile();
+    this.showErrorIfError();
   },
 };
 </script>
@@ -103,7 +104,8 @@ export default {
 @import "~bootstrap-vue/src/index.scss";
 
 .myEditor {
-  font-family: "Courier New", Courier, monospace;
+  font-family: 'Courier New', Courier, monospace;
+  padding-bottom: 5rem;
 }
 
 .main {

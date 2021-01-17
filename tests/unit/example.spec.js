@@ -9,14 +9,14 @@ import * as testCode from "../testCode"
 test("ssd0", () => {
 
     let baseModules = Generator.getBaseModules(testCode.code1).data;
-    let elaboratedModules = Generator.elaborateModuleDict(baseModules);
+    let elaboratedModules = Generator.elaborateModuleDict(baseModules).data;
 
     let boolArrArr = [];
     boolArrArr.push(BitwiseLib.binaryToBitArray("0000"))
 
     let evaluator = new Evaluator(elaboratedModules);
 
-    let valArr = evaluator.evaluateModule(elaboratedModules["ssd0"], boolArrArr);
+    let valArr = evaluator.evaluateModule(elaboratedModules["ssd0"], boolArrArr).data;
 
     console.log(evaluator.evaluate("ssd0", boolArrArr));
 
@@ -26,14 +26,14 @@ test("ssd0", () => {
 test("pls", () => {
 
     let baseModules = Generator.getBaseModules(testCode.code3).data;
-    let elaboratedModules = Generator.elaborateModuleDict(baseModules);
+    let elaboratedModules = Generator.elaborateModuleDict(baseModules).data;
 
     let boolArrArr = [];
     boolArrArr.push(BitwiseLib.binaryToBitArray("1100"))
 
     let evaluator = new Evaluator(elaboratedModules);
 
-    let valArr = evaluator.evaluateModule(elaboratedModules["pls"], boolArrArr);
+    let valArr = evaluator.evaluateModule(elaboratedModules["pls"], boolArrArr).data;
 
     expect("1100").toEqual(BitwiseLib.bitArrayToString(valArr[0], 2))
 });
@@ -41,7 +41,7 @@ test("pls", () => {
 test("arith", () => {
     let baseModules = Generator.getBaseModules(testCode.code2).data;
 
-    let elaboratedModules = Generator.elaborateModuleDict(baseModules);
+    let elaboratedModules = Generator.elaborateModuleDict(baseModules).data;
     let evaluator = new Evaluator(elaboratedModules);
     let opcode = BitwiseLib.binaryToBitArray("0100");
     let A = BitwiseLib.binaryToBitArray("00001010");
@@ -56,7 +56,7 @@ test("arith", () => {
     function add(a, b) {
         let inputs = [opcode, a, b];
 
-        let valArr = evaluator.evaluateModule(elaboratedModules["arith"], inputs);
+        let valArr = evaluator.evaluateModule(elaboratedModules["arith"], inputs).data;
         let sum = BitwiseLib.bitArrayToString(valArr[0]);
         return parseInt(sum);
     }

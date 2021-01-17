@@ -1,9 +1,10 @@
 /* eslint-disable no-case-declarations */
+import { TimePlugin } from "bootstrap-vue";
 import * as BitwiseLib from "./bitwiseLib";
-import { clone } from "./generateNodeNetwork";
+import { clone, compileVerilog } from "./generateNodeNetwork";
 
 // import { elaborateModules } from "./generateNodeNetwork";
-import { Module, IO, ParameterSyntax, AnnotatedExpression, Node, ENUM, ExpressionType, BooleanDict, ModuleDict } from "./interfaces";
+import { Module, IO, ParameterSyntax, AnnotatedExpression, Node, ENUM, CompileError, ExpressionType, ErrorCode, EvalReturn, BooleanDict, ModuleDict, constructCompileError, ModuleReturn } from "./interfaces";
 
 export class Evaluator {
     moduleDict: ModuleDict;
@@ -12,15 +13,29 @@ export class Evaluator {
         this.moduleDict = moduleDict;
     }
 
-    evaluate(moduleName: string, inputValues: boolean[][]): Module {
+    evaluate(moduleName: string, inputValues: boolean[][]): ModuleReturn {
         this.mainModule = clone(this.moduleDict[moduleName]);
 
-        this.evaluateModule(this.mainModule, inputValues, null);
-        this.elaborateSubModules(this.mainModule);
+        let temp = this.evaluateModule(this.mainModule, inputValues, null);
+        let toReturn: ModuleReturn = {
+            failed: temp.failed,
+            error: temp.error,
+            data: null
+        }
 
-        return this.mainModule;
+        if (temp.failed) {
+            return toReturn;
+        }
+        this.elaborateSubModules(this.mainModule);
+        toReturn.data = this.mainModule;
+
+        return toReturn;
     }
 
+    /**
+     * Recursively adds info on the the submodules about the variables fed into them from the parent
+     * @param parent 
+     */
     private elaborateSubModules(parent: Module) {
         let subModuleInd = 0;
         if (parent.subModules.length == 0) return;
@@ -184,7 +199,14 @@ export class Evaluator {
      * @param module 
      * @param inputs values must align with input syntax
      */
-    evaluateModule(module: Module, inputValues: boolean[][], parent: Module): boolean[][] {
+    evaluateModule(module: Module, inputValues: boolean[][], parent: Module): EvalReturn {
+
+        let returnVal: EvalReturn = {
+            failed: null,
+            error: null,
+            data: []
+        }
+
         //create dict = dict + wires
         let IOandWires: BooleanDict = {};
         //inputs first, then outputs, then wires
@@ -259,10 +281,28 @@ export class Evaluator {
                                 values = valTemp;
                             }
                             else {
-                                //passes in the current module as the parent
-                                //new children are cloned from a refrence from the dict
-                                let child = clone(this.moduleDict[node.moduleName]);
-                                values = this.evaluateModule(child, inputValues, module);
+                                if (this.moduleDict[node.moduleName] === undefined) {
+                                    returnVal.failed = true;
+                                    returnVal.error = constructCompileError("Unknown module used", node.lineNumber, 
+                                    ErrorCode.unknownModule, node);
+                                    return returnVal;
+                                }
+                                else {
+                                    //passes in the current module as the parent
+                                    //new children are cloned from a refrence from the dict
+                                    let child: Module = clone(this.moduleDict[node.moduleName]);
+                                    let evalTemp:EvalReturn = this.evaluateModule(child, inputValues, module);
+                                    if (evalTemp.failed) {
+                                        returnVal.failed = true;
+                                        returnVal.error = evalTemp.error;
+                                        console.log("evalTemp failed")
+                                        //will pass errors up to the top module
+                                        return returnVal;
+                                    }
+                                    else {
+                                        values = evalTemp.data;
+                                    }
+                                }
                             }
                             break;
                     }
@@ -278,8 +318,14 @@ export class Evaluator {
                         for (let bitInd = output.beginBit; bitInd <= output.endBit; bitInd++) {
                             let valueToFillBit = valueToFill[bitInd];
                             if (valueToFillBit !== null) {
-                                console.log("bit already assigned to")
-                                return null; //bit already assigned to
+                                returnVal.failed = true;
+                                returnVal.error = constructCompileError("Bit " + bitInd + " of " + output.name + "already has a value",
+                                    node.lineNumber,
+                                    ErrorCode.doubleAssignment,
+                                    node,
+                                );
+
+                                return returnVal;
                             }
                             IOandWires[output.name][bitInd] = values[i][valueBitInd];
                             valueBitInd++;
@@ -291,39 +337,14 @@ export class Evaluator {
                 }
             }
 
-            //not sure if i need this
-            // if (initialLength == nodesNotEvaluated.length) {
-            //     //test if all the outputs are set:
-
-            //     let allParametersSet = true;
-            //     let parameters = Object.values(IOandWires);
-            //     parentFor:
-            //     for (let i = 0; i < parameters.length; i++) {
-            //         const parameter = parameters[i];
-            //         for (let j = 0; j < parameter.length; j++) {
-            //             const bit = parameter[j];
-            //             if (bit === null) {
-            //                 allParametersSet = false;
-            //                 break parentFor;
-            //             }
-            //         }
-            //     }
-
-            //     if (allParametersSet) {
-            //         break mainWhile;
-            //     }
-            //     else {
-            //         console.log("no nodes were able to be evaluated this loop so that means that there is an error in syntax");
-            //         return null;
-            //     }
-            // }
-
             if (initialLength == nodesNotEvaluated.length) {
-                console.log("no nodes were able to be evaluated this loop so that means that there is an error in syntax");
-                console.log(module.name)
-                console.log(nodesNotEvaluated)
-                console.log(IOandWires)
-                return null;
+                returnVal.failed = true;
+                returnVal.error = constructCompileError("Your wires are disconnected!",
+                    nodesNotEvaluated[0].lineNumber,
+                    ErrorCode.disconnectedWires,
+                    IOandWires);
+
+                return returnVal;
             }
         }
 
@@ -338,6 +359,36 @@ export class Evaluator {
             parent.subModules.push(module);
         }
 
-        return output;
+        returnVal.data = output;
+        return returnVal;
     }
+}
+
+
+export function getError(text: string): CompileError {
+    let modules = compileVerilog(text);
+    if (!modules.failed) {
+        let evaluator = new Evaluator(modules.data)
+
+        Object.values(modules.data).forEach(module => {
+            let testInput: boolean[][] = [];
+
+            module.inputs.forEach(input => {
+                let arr = BitwiseLib.initializeBitArray(input.endBit - input.beginBit).fill(false, 0);
+                testInput.push(arr);
+            });
+
+            let result = evaluator.evaluate(module.name, testInput);
+
+            if (result.failed) {
+                return result.error;
+            }
+            console.log(result);
+        });
+    }
+    else {
+        return modules.error;
+    }
+    //if no errors are caught
+    return null;
 }

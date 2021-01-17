@@ -23,7 +23,7 @@
         <div>
           <button
             type="button"
-            v-bind:class="{ disabled: !toggleState }"
+            v-bind:class="{ disabled: !showEditor }"
             class="btn btn-outline-secondary"
             v-on:click="toggle()"
           >
@@ -34,7 +34,7 @@
         <div>
           <button
             type="button"
-            v-bind:class="{ disabled: toggleState }"
+            v-bind:class="{ disabled: showEditor }"
             class="btn btn-outline-secondary"
             v-on:click="toggle()"
           >
@@ -46,7 +46,7 @@
     <!-- fills in for position fixed nav -->
     <div style="height: 5rem"></div>
 
-    <div v-if="toggleState">
+    <div v-if="showEditor">
       <Editor />
     </div>
     <div v-else>
@@ -74,21 +74,21 @@ export default {
       Console.log(val);
     },
     toggle() {
-      if (this.toggleState) {
+      if (this.showEditor) {
         this.leftContent = "simulating...";
         this.rightContent = "Edit";
       } else {
         this.leftContent = "Simulate";
         this.rightContent = "editing...";
       }
-      this.toggleState = !this.toggleState;
+      this.showEditor = !this.showEditor;
     },
   },
   data() {
     return {
       leftContent: "Simulate",
       rightContent: "editing...",
-      toggleState: true,
+      showEditor: true,
     };
   },
 };
@@ -121,7 +121,7 @@ sub {
   display: flex;
   flex-direction: row;
   justify-content: space-between;
-  font-family: "Courier New", Courier, monospace;
+  font-family: Consolas;
   align-items: center;
   background-color: #16161c;
   padding-top: 0.5rem;
@@ -153,6 +153,7 @@ sub {
 .btn-outline-secondary {
   background-color: #16161c !important;
   color: #ccc !important;
+  font-family: Consolas !important;
 }
 .btn-outline-secondary:hover {
   background-color: #121212 !important;
@@ -179,7 +180,7 @@ body {
 }
 
 #app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
+  font-family: Consolas;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-align: center;

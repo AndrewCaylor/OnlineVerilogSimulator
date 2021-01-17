@@ -11,7 +11,7 @@ function log(message: string, stuff: any) {
 }
 
 //importing interfaces
-import { Module, ParameterSyntax, AnnotatedExpression, Node, ENUM, ModuleDictReturn, ModuleDict, CompileError } from "./interfaces";
+import { Module, ParameterSyntax, AnnotatedExpression, Node, ENUM, ModuleDictReturn, ModuleDict, constructCompileError, ModuleReturn, ErrorCode } from "./interfaces";
 
 import * as BitwiseLib from ".//bitwiseLib"
 
@@ -26,9 +26,9 @@ and G5 (x[3], a[3], b[3]),
     G7 (x[1], a[1], b[1]),
     G8 (x[0], a[0], b[0]);
 */
-//may the lord have mercy on my soul (190 characters of regex)
+//may the lord have mercy on my soul (191 characters of regex)
 function isModuleUsage(text) {
-    return (text.match(/\w+\s+\w+\s*\((\s*(([A-z]\w*((\[\d+\])|(\[\d+:\d+\]))?)|(\d*'((b[01]+)|(d[0-9]+)|(h[0-9A-F]+))))\s*)(,\s*(([A-z]\w*((\[\d+\])|(\[\d+:\d+\]))?)|(\d*'((b[01]+)|(d[0-9]+)|(h[0-9A-F]+))))\s*)+\)/g) || []).length == 1;
+    return (text.match(/^\w+\s+\w+\s*\((\s*(([A-z]\w*((\[\d+\])|(\[\d+:\d+\]))?)|(\d*'((b[01]+)|(d[0-9]+)|(h[0-9A-F]+))))\s*)(,\s*(([A-z]\w*((\[\d+\])|(\[\d+:\d+\]))?)|(\d*'((b[01]+)|(d[0-9]+)|(h[0-9A-F]+))))\s*)+\)$/g) || []).length == 1;
 }
 function isModuleDeclaration(text) {
     return (
@@ -38,19 +38,19 @@ function isModuleDeclaration(text) {
 }
 function isWireDeclaration(text) {
     return (
-        (text.match(/wire\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+)/g) || [])
+        (text.match(/wire\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+)$/g) || [])
             .length == 1
     );
 }
 function isInputDeclaration(text) {
     return (
-        (text.match(/input\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+)/g) || [])
+        (text.match(/input\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+)$/g) || [])
             .length == 1
     );
 }
 function isOutputDeclaration(text) {
     return (
-        (text.match(/output\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+)/g) || [])
+        (text.match(/output\s+(\[\d+:\d+\])*(\s*\w+\s*,)*(\s*\w+)$/g) || [])
             .length == 1
     );
 }
@@ -90,11 +90,7 @@ export function getBaseModules(text: string): ModuleDictReturn {
 
     let returnVal: ModuleDictReturn = {
         failed: null,
-        error: {
-            message: null,
-            lineNumber: null,
-            errorData: null
-        },
+        error: null,
         data: {}
     }
 
@@ -110,38 +106,44 @@ export function getBaseModules(text: string): ModuleDictReturn {
 
     //fills the annotaed expressions array
     let expressionText = "";
+    let lineNumber;
     textArray.forEach((expression, i) => {
         let removedWhiteSpace = expression.replace(/\s+/g, "");
         expression = expression.trim();
         if (removedWhiteSpace) {
-            if(expression[expression.length - 1] == ";"){
+            if (expression[expression.length - 1] == ";") {
                 //do not include semicolon
                 expressionText += expression.substr(0, expression.length - 1);
+                if (!lineNumber) lineNumber = i;
                 annotatedExpressions.push({
                     "expression": expressionText,
                     type: getExpressionType(expressionText),
-                    lineNumber: i + 1
+                    "lineNumber": lineNumber + 1
                 });
                 expressionText = "";
+                lineNumber = null;
             }
-            else if(expression == "endmodule"){
+            else if (expression == "endmodule") {
                 annotatedExpressions.push({
                     "expression": expression,
                     type: ENUM.Endmodule,
-                    lineNumber: i + 1
+                    "lineNumber": i + 1
                 });
+                lineNumber = null;
             }
-            else{
+            else {
                 expressionText += expression.substr(0, expression.length);
+                if (!lineNumber) lineNumber = i;
             }
         }
     });
+
+    log("annotated expressions", annotatedExpressions)
 
     let state = null;
     let moduleContent: AnnotatedExpression[] = [];
     //will edit parent obj
     let moduleDict: ModuleDict = returnVal.data;
-    let error: CompileError = returnVal.error;
 
     //TODO: collect info about all line failures and not just return first one (or not?)
 
@@ -156,9 +158,9 @@ export function getBaseModules(text: string): ModuleDictReturn {
                     moduleContent.push(annotatedExpressions[i]);
                 } else {
                     returnVal.failed = true;
-                    error.message = "Previous module not closed with endmodule";
-                    error.errorData = annotatedExpressions[i];
-                    error.lineNumber = null;
+                    returnVal.error = constructCompileError("Previous module not closed with endmodule",
+                        annotatedExpressions[i].lineNumber,
+                        ErrorCode.noEndModule, annotatedExpressions[i])
                     return returnVal;
                 }
                 break;
@@ -172,9 +174,10 @@ export function getBaseModules(text: string): ModuleDictReturn {
                     state = null;
                 } else {
                     returnVal.failed = true;
-                    error.message = "Extra endmodule statment";
-                    error.errorData = annotatedExpressions[i];
-                    error.lineNumber = null;
+                    returnVal.error = constructCompileError("Extra endmodule statement",
+                        annotatedExpressions[i].lineNumber,
+                        ErrorCode.extraEndmodule,
+                        annotatedExpressions[i]);
                     return returnVal;
                 }
                 break;
@@ -182,16 +185,37 @@ export function getBaseModules(text: string): ModuleDictReturn {
             case null:
                 //will be null if there was a syntax error in that line
                 returnVal.failed = true;
-                error.message = "Uknown or invalid syntax";
-                error.errorData = annotatedExpressions[i];
-                error.lineNumber = null;
+                returnVal.error = constructCompileError("Unknown or invalid syntax",
+                    annotatedExpressions[i].lineNumber,
+                    ErrorCode.invalidSyntax,
+                    annotatedExpressions[i]);
                 return returnVal;
 
             default:
-                moduleContent.push(annotatedExpressions[i]);
+                if(state === null){
+                    log("found", null)
+                    returnVal.failed = true;
+                    returnVal.error = constructCompileError("Code between endmodule and next module declaration",
+                        annotatedExpressions[i].lineNumber,
+                        ErrorCode.invalidSyntax,
+                        annotatedExpressions[i]);
+                    return returnVal;
+                }
+                else{
+                    moduleContent.push(annotatedExpressions[i]);
+                }
 
                 break;
         }
+    }
+
+    if (state == "parsingModule") {
+        returnVal.failed = true;
+        returnVal.error = constructCompileError("No endmodule statement at end of file",
+            annotatedExpressions[annotatedExpressions.length - 1].lineNumber,
+            ErrorCode.noEndModule,
+            annotatedExpressions[annotatedExpressions.length - 1]);
+        return returnVal;
     }
 
     log("base modules", moduleDict)
@@ -341,7 +365,14 @@ function getVariableObj(baseModuleObj: Module, variableText: string) {
  * TODO: simplify
  * @param obj module object created using generateBaseModuleObj
  */
-function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
+function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): ModuleReturn {
+
+    let returnVal: ModuleReturn = {
+        failed: null,
+        error: null,
+        data: clone(obj)
+    }
+
     let annotatedExpressions = obj.annotatedExpressions; //shorthand
 
     //for each expression find the modules/assign statements
@@ -349,7 +380,9 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
         const expression = annotatedExpressions[i].expression;
 
         let node: Node = {
+            "expression": expression,
             type: annotatedExpressions[i].type,
+            lineNumber: annotatedExpressions[i].lineNumber,
             callSyntax: [],
             inputs: [],
             outputs: []
@@ -373,11 +406,33 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
 
                 var uniqueWords: string[] = Array.from(new Set(words));
 
-                for (let i = 0; i < uniqueWords.length; i++) {
-                    node.callSyntax.push(getVariableObj(obj, uniqueWords[i]));
+                for (let wordInd = 0; wordInd < uniqueWords.length; wordInd++) {
+                    let varObj = getVariableObj(obj, uniqueWords[wordInd])
+                    //ERROR CHECK
+                    if (!varObj) {
+                        log("Variable name used in assign statement not found: ", uniqueWords[wordInd])
+                        returnVal.failed = true;
+                        returnVal.error = constructCompileError("Variable name used in assign statement not found: " + uniqueWords[wordInd],
+                            annotatedExpressions[i].lineNumber,
+                            ErrorCode.variableNameNotFound,
+                            annotatedExpressions[i]);
+                        return returnVal;
+                    }
+                    node.callSyntax.push(varObj);
                 }
 
                 let output: ParameterSyntax = getVariableObj(obj, outputName);
+
+                //ERROR CHECK
+                if (!output) {
+                    log("Variable name assigned to not found: ", outputName)
+                    returnVal.failed = true;
+                    returnVal.error = constructCompileError("Variable name assigned to not found: " + outputName,
+                        annotatedExpressions[i].lineNumber,
+                        ErrorCode.variableNameNotFound,
+                        annotatedExpressions[i]);
+                    return returnVal;
+                }
                 let bits = getAssignBits(expression);
                 if (bits) {
                     output.beginBit = bits[0];
@@ -390,9 +445,8 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
                 break;
 
             case ENUM.ModuleUsage:
-
                 words = expression.match(/((?=\s*)\w+((\[\d+\])|(\[\d+:\d+\])|\d*'((b[01]+)|(d[0-9]+)|(h[0-9A-F]+)))*)/g);
-                node.moduleName = words[0];
+                node.moduleName = words[0]; //cant check for module name yet
                 node.instanceName = words[1];
 
                 let moduleIO: string[] = words.slice(2);
@@ -413,12 +467,23 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
                     //parameter is a regular variable
                     else {
                         let bits = getModuleUsageBits(parameter);
-                        let parameterObj = getVariableObj(obj, parameter.match(/\w+/)[0]);
+                        let parameterName = parameter.match(/\w+/)[0];
+                        let parameterObj = getVariableObj(obj, parameterName);
+                        //ERROR CHECK
+                        if (!parameterObj) {
+                            log("Variable used in module not found: ", parameterName);
+                            returnVal.failed = true;
+                            returnVal.error = constructCompileError("IO Variable not declared in module declaration: " + parameterName,
+                                annotatedExpressions[i].lineNumber,
+                                ErrorCode.variableNameNotFound,
+                                annotatedExpressions[i]);
+                            return returnVal;
+                        }
                         if (bits) {
                             parameterObj.beginBit = bits[0];
                             parameterObj.endBit = bits[1];
                         }
-                        node.callSyntax.push(parameterObj);
+                        node.callSyntax.push(parameterObj); //pushing
                     }
                 }
 
@@ -443,8 +508,13 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
                         node.inputs = node.callSyntax.slice(1);
                     }
                     else {
-                        console.log("Module name not found: ", node.moduleName)
-                        return null;
+                        log("Module name not found: ", node.moduleName)
+                        returnVal.failed = true;
+                        returnVal.error = constructCompileError("Module name not found: " + node.moduleName,
+                            annotatedExpressions[i].lineNumber,
+                            ErrorCode.moduleNameNotFound,
+                            annotatedExpressions[i]);
+                        return returnVal;
                     }
                 }
 
@@ -495,18 +565,34 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): Module {
     }
 
     log("elaborated module obj", obj)
-    return obj;
+    return {
+        failed: false,
+        error: null,
+        data: obj
+    };
 }
 
 /**
  * 
  * @param modules Array returned from generateNetwork function
  */
-export function elaborateModuleDict(moduleDict: ModuleDict): ModuleDict {
-    let elaboratedModules: ModuleDict = {};
+export function elaborateModuleDict(moduleDict: ModuleDict): ModuleDictReturn {
+    let elaboratedModules: ModuleDictReturn = {
+        failed: null,
+        error: null,
+        data: {}
+    };
 
     Object.keys(moduleDict).forEach(key => {
-        elaboratedModules[key] = elaborateModuleObj(moduleDict[key], moduleDict)
+        let result = elaborateModuleObj(moduleDict[key], moduleDict);
+        if (!result.failed) {
+            elaboratedModules.data[key] = result.data;
+        }
+        else {
+            elaboratedModules.error = result.error;
+            elaboratedModules.failed = true;
+            return elaboratedModules;
+        }
     });
 
     log("elaborated modules", elaboratedModules);
@@ -514,13 +600,17 @@ export function elaborateModuleDict(moduleDict: ModuleDict): ModuleDict {
     return elaboratedModules;
 }
 
-export function compileVerilog(text) {
-    let net = getBaseModules(text).data;
-    if (net.error) {
-        //net is an error object
-        return net;
+/**
+ * 
+ * @param text 
+ */
+export function compileVerilog(text: string): ModuleDictReturn {
+    let baseModules = getBaseModules(text);
+    if (baseModules.error) {
+        //there is an error in baseModules
+        return baseModules;
     }
-    let elaborated = elaborateModuleDict(net);
+    let elaborated = elaborateModuleDict(baseModules.data);
     return elaborated;
 }
 

@@ -31,8 +31,7 @@ export interface AnnotatedExpression {
     lineNumber: number
 }
 
-export interface Node {
-    type: ExpressionType
+export interface Node extends AnnotatedExpression {
     callSyntax: ParameterSyntax[]
     inputs: ParameterSyntax[]
     outputs: ParameterSyntax[]
@@ -66,10 +65,33 @@ export interface ModuleDict {
     [name: string]: Module
 }
 
-export interface CompileError{
+
+export enum ErrorCode {
+    disconnectedWires,
+    doubleAssignment,
+    unknownModule,
+    noEndModule,
+    extraEndmodule,
+    invalidSyntax,
+    variableNameNotFound,
+    moduleNameNotFound
+}
+
+export function constructCompileError(message: string, lineNumber: number, errorCode: ErrorCode, errorData: any): CompileError {
+    return {
+        "message": message,
+        "lineNumber": lineNumber,
+        "errorData": errorData,
+        "errorCode": errorCode
+    }
+}
+
+
+export interface CompileError {
     message: string
     lineNumber: number
     errorData: any
+    errorCode: ErrorCode | null
 }
 
 export interface ModuleReturn {
@@ -82,4 +104,10 @@ export interface ModuleDictReturn {
     failed: boolean
     error: CompileError
     data: ModuleDict
+}
+
+export interface EvalReturn {
+    failed: boolean
+    error: CompileError
+    data: boolean[][]
 }
