@@ -1,4 +1,8 @@
 # Online Verilog Simulator!
+Made during Winter Break 2020-2021
+
+https://andrew-s-verilog-sim.web.app/
+
 It compiles and simulates (some) verilog files!
 
 Verilog Language Refrence:
