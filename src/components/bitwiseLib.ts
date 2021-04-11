@@ -41,6 +41,7 @@ export function stringToBitArray(text: string): boolean[] {
     let type: string[] = text.match(/(?<=\d*')[bdh]/);
     let splitted: string[] = text.split(/'[bdh]/);
 
+    //if there is no type, assume base 10
     if (splitted.length == 1) {
         let temp = parseInt(splitted[0], 10).toString(2);
         return binaryToBitArray(temp);

@@ -4,7 +4,7 @@ import * as BitwiseLib from "./bitwiseLib";
 import { clone, compileVerilog } from "./generateNodeNetwork";
 
 // import { elaborateModules } from "./generateNodeNetwork";
-import { Module, IO, ParameterSyntax, AnnotatedExpression, Node, ENUM, CompileError, ExpressionType, ErrorCode, EvalReturn, BooleanDict, ModuleDict, constructCompileError, ModuleReturn } from "./interfaces";
+import { Module, IO, ParameterSyntax, AnnotatedExpression, Node, ENUM, BoolArrReturn, CompileError, ExpressionType, ErrorCode, EvalReturn, BooleanDict, ModuleDict, constructCompileError, ModuleReturn } from "./interfaces";
 
 export class Evaluator {
     moduleDict: ModuleDict;
@@ -24,6 +24,7 @@ export class Evaluator {
         }
 
         if (temp.failed) {
+            console.log("evaluation failed")
             return toReturn;
         }
         this.elaborateSubModules(this.mainModule);
@@ -90,8 +91,6 @@ export class Evaluator {
             return null;
         }
         else {
-            //TODO: ensure all ins/outs are same bit length
-            //TODO: check that module will not output to an input (syntax checking)
             let operation: Function = BitwiseLib.Operators[bitwiseNotation];
             let in1 = inputValues[0][0];
             let value: boolean;
@@ -103,7 +102,7 @@ export class Evaluator {
                 let in2 = inputValues[1][0];
                 value = operation(in1, in2);
                 for (let i = 2; i < node.inputs.length; i++) {
-                    value = operation(value, inputValues[i][0])
+                    value = operation(value, inputValues[i][0]);
                 }
                 return [[value]];
             }
@@ -114,7 +113,14 @@ export class Evaluator {
      * @param context
      * @param tokens postfix notation stack
      */
-    public evaluateStack(context: BooleanDict, tokens: string[]): boolean[] {
+    public evaluateStack(context: BooleanDict, tokens: string[]): BoolArrReturn {
+
+        let returnVal = {
+            failed: null,
+            error: null,
+            data: []
+        };
+
         let stack: any[] = [];
 
 
@@ -123,6 +129,7 @@ export class Evaluator {
 
             let a: any;
             let b: any;
+            let doCheck: boolean = false;
             switch (token) {
                 case "~":
                     a = stack.pop();
@@ -135,11 +142,32 @@ export class Evaluator {
                 case "~|":
                 case "^":
                 case "~^":
+                    doCheck = true;
+                //falls through
                 case ">>"://TODO: enable left and right shift by bit arrays
                 case "<<"://converting bit arrays to number
                 case ",":
                     a = stack.pop();
                     b = stack.pop();
+
+                    //this will happen if there is malformed syntax
+                    if(b === undefined || a === undefined){
+                        returnVal.failed = true;
+                        returnVal.error = constructCompileError("Incorrect assign statement syntax!",
+                            null, ErrorCode.invalidAssignSyntax, null);
+                        return returnVal;
+                    }
+
+                    if (doCheck) {
+                        if (a.length != b.length) {
+                            returnVal.failed = true;
+                            returnVal.error = constructCompileError("Attempted to do " + token + " operator on operands of different length",
+                                null, ErrorCode.invalidAssignSyntax, [a, b]);
+                            return returnVal;
+                        }
+                        doCheck = false;
+                    }
+
                     stack.push(BitwiseLib.doOperation(token, a, b));
                     break;
 
@@ -168,9 +196,13 @@ export class Evaluator {
                             parameterName = token.split("[")[0];
                         }
 
+                        //not sure how you would get to this error message but I am keeping it because i am too scared to remove it
                         let bits = context[parameterName];
                         if (bits === undefined) {
-                            return null;
+                            returnVal.failed = true;
+                            returnVal.error = constructCompileError("Variable " + parameterName + " not defined in module",
+                                null, ErrorCode.variableNameNotFound, [a, b]);
+                            return returnVal;
                         }
 
                         //gets the bits within the range
@@ -182,7 +214,8 @@ export class Evaluator {
             }
         }
 
-        return stack.pop();
+        returnVal.data = stack.pop();
+        return returnVal;
     }
 
     /**
@@ -194,7 +227,7 @@ export class Evaluator {
         repeat until value for output node is found
         check each cycle if anything changed
         if not: ERROR => no value for ___ wires!
-
+    
      * outputs boolean []s for each of the output wires in the module
      * @param module 
      * @param inputs values must align with input syntax
@@ -254,7 +287,32 @@ export class Evaluator {
                     let values: boolean[][] = [];
                     switch (node.type) {
                         case ENUM.Assign:
-                            values.push(this.evaluateStack(IOandWires, node.stack));
+                            let answer = this.evaluateStack(IOandWires, node.stack);
+
+                            if (answer.failed) {
+                                //evalStack does not give line number
+                                answer.error.lineNumber = node.lineNumber;
+                                returnVal.error = answer.error;
+                                returnVal.failed = true;
+                                return returnVal;
+                            }
+                            else {
+                                console.log(answer.data)
+                                let expectedBitLength = node.outputs[0].endBit - node.outputs[0].beginBit + 1;
+                                if (answer.data.length != expectedBitLength) {
+                                    returnVal.error = constructCompileError(
+                                        `Assign statement output is ${answer.data.length} bits but it should be ${expectedBitLength}`,
+                                        node.lineNumber,
+                                        ErrorCode.bitLengthDifference,
+                                        [answer.data, expectedBitLength]);
+                                    returnVal.failed = true;
+
+                                    return returnVal;
+                                }
+                                else {
+                                    values.push(answer.data);
+                                }
+                            }
                             break;
                         case ENUM.ModuleUsage:
                             //if it is a primitive it will return a value
@@ -283,20 +341,19 @@ export class Evaluator {
                             else {
                                 if (this.moduleDict[node.moduleName] === undefined) {
                                     returnVal.failed = true;
-                                    returnVal.error = constructCompileError("Unknown module used", node.lineNumber, 
-                                    ErrorCode.unknownModule, node);
+                                    returnVal.error = constructCompileError("Unknown module used", node.lineNumber,
+                                        ErrorCode.unknownModule, node);
                                     return returnVal;
                                 }
                                 else {
                                     //passes in the current module as the parent
                                     //new children are cloned from a refrence from the dict
                                     let child: Module = clone(this.moduleDict[node.moduleName]);
-                                    let evalTemp:EvalReturn = this.evaluateModule(child, inputValues, module);
+                                    let evalTemp: EvalReturn = this.evaluateModule(child, inputValues, module);
                                     if (evalTemp.failed) {
                                         returnVal.failed = true;
                                         returnVal.error = evalTemp.error;
-                                        console.log("evalTemp failed")
-                                        //will pass errors up to the top module
+                                        //will pass errors up to the top module BUT IT DONT FOR SOME REASON
                                         return returnVal;
                                     }
                                     else {
@@ -319,7 +376,7 @@ export class Evaluator {
                             let valueToFillBit = valueToFill[bitInd];
                             if (valueToFillBit !== null) {
                                 returnVal.failed = true;
-                                returnVal.error = constructCompileError("Bit " + bitInd + " of " + output.name + "already has a value",
+                                returnVal.error = constructCompileError("Bit " + bitInd + " of " + output.name + " already has a value",
                                     node.lineNumber,
                                     ErrorCode.doubleAssignment,
                                     node,
@@ -364,27 +421,35 @@ export class Evaluator {
     }
 }
 
-
+/**
+ * 
+ * Runs the code
+ * 
+ * @param text text to be compiles
+ */
 export function getError(text: string): CompileError {
     let modules = compileVerilog(text);
     if (!modules.failed) {
         let evaluator = new Evaluator(modules.data)
 
-        Object.values(modules.data).forEach(module => {
+        //have to have for loop here because not able to do a return from inside a callback
+        let vals = Object.values(modules.data);
+        for (let i = 0; i < vals.length; i++) {
+            const module = vals[i];
+            
             let testInput: boolean[][] = [];
 
             module.inputs.forEach(input => {
-                let arr = BitwiseLib.initializeBitArray(input.endBit - input.beginBit).fill(false, 0);
+                let arr = BitwiseLib.initializeBitArray(input.endBit - input.beginBit + 1).fill(false, 0);
                 testInput.push(arr);
             });
 
-            let result = evaluator.evaluate(module.name, testInput);
+            let result: ModuleReturn = evaluator.evaluate(module.name, testInput);
 
             if (result.failed) {
                 return result.error;
             }
-            console.log(result);
-        });
+        }
     }
     else {
         return modules.error;

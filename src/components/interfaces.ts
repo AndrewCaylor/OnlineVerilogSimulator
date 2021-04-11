@@ -65,19 +65,22 @@ export interface ModuleDict {
     [name: string]: Module
 }
 
-
+//Need to show more UI for certain errors to show user what is wrong
 export enum ErrorCode {
-    disconnectedWires,
+    disconnectedWires, //<
     doubleAssignment,
     unknownModule,
     noEndModule,
     extraEndmodule,
     invalidSyntax,
     variableNameNotFound,
-    moduleNameNotFound
+    moduleNameNotFound,
+    invalidAssignSyntax,
+    bitLengthDifference
 }
 
 export function constructCompileError(message: string, lineNumber: number, errorCode: ErrorCode, errorData: any): CompileError {
+    console.log(" COMPILE ERROR ", message)
     return {
         "message": message,
         "lineNumber": lineNumber,
@@ -110,4 +113,10 @@ export interface EvalReturn {
     failed: boolean
     error: CompileError
     data: boolean[][]
+}
+
+export interface BoolArrReturn {
+    failed: boolean
+    error: CompileError
+    data: boolean[]
 }

@@ -55,6 +55,7 @@ export default {
       }
       this.showError = !!error;
       this.$emit("isCompileError", this.showError);
+      //TODO: disable user from running code when there is an error
     },
     highlighter(code) {
       //this module runs whenever a character is typed in the prismjs textbox
@@ -62,6 +63,7 @@ export default {
       window.localStorage.setItem("default", this.verilogCode);
       return highlight(code, languages.verilog); //returns html
     },
+    //runs on every onclick
     highlightLine() {
       //should only be one textarea for now
       let mainTextArea = document.getElementsByTagName("textarea")[0];

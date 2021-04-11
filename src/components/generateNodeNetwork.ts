@@ -16,7 +16,7 @@ import { Module, ParameterSyntax, AnnotatedExpression, Node, ENUM, ModuleDictRet
 import * as BitwiseLib from ".//bitwiseLib"
 
 function isAssignStatement(text) {
-    return (text.match(/assign\s+\w+((\[\d+\])|(\[\d+:\d+\]))?\s+=.+/g) || []).length == 1; //does noit check for correct syntax inside the statement
+    return (text.match(/assign\s+\w+((\[\d+\])|(\[\d+:\d+\]))?\s+=.+/g) || []).length == 1; //does not check for correct syntax inside the statement
 }
 
 /*
@@ -84,6 +84,12 @@ export function getExpressionType(text) {
 
 /**
  * TODO: do something with errors
+ * 
+ * Purpose:
+ * Creates annotated expressions for the file
+ * Then groups annotated expressions based on module
+ * Then generates base module obj based on the annotated expression groups
+ * 
  * @param text all the code the user wants to compile
  */
 export function getBaseModules(text: string): ModuleDictReturn {
@@ -108,8 +114,10 @@ export function getBaseModules(text: string): ModuleDictReturn {
     let expressionText = "";
     let lineNumber;
     textArray.forEach((expression, i) => {
+        //remove whitespace
         let removedWhiteSpace = expression.replace(/\s+/g, "");
         expression = expression.trim();
+
         if (removedWhiteSpace) {
             if (expression[expression.length - 1] == ";") {
                 //do not include semicolon
@@ -124,6 +132,16 @@ export function getBaseModules(text: string): ModuleDictReturn {
                 lineNumber = null;
             }
             else if (expression == "endmodule") {
+                //there should be no text in the c
+                if (expressionText) {
+                    returnVal.failed = true;
+                    returnVal.error = constructCompileError("Statement not closed with semicolon",
+                        lineNumber + 1,
+                        ErrorCode.invalidSyntax,
+                        expressionText);
+                    return returnVal;
+                }
+
                 annotatedExpressions.push({
                     "expression": expression,
                     type: ENUM.Endmodule,
@@ -169,9 +187,16 @@ export function getBaseModules(text: string): ModuleDictReturn {
                 //generate new module using the previous lines
                 if (state == "parsingModule") {
                     let moduleObj = generateBaseModuleObj(moduleContent);
-                    moduleDict[moduleObj.name] = moduleObj;
-                    moduleContent = [];
-                    state = null;
+                    if (moduleObj.error) {
+                        returnVal.failed = true;
+                        returnVal.error = moduleObj.error;
+                        return returnVal;
+                    }
+                    else {
+                        moduleDict[moduleObj.data.name] = moduleObj.data;
+                        moduleContent = [];
+                        state = null;
+                    }
                 } else {
                     returnVal.failed = true;
                     returnVal.error = constructCompileError("Extra endmodule statement",
@@ -185,14 +210,14 @@ export function getBaseModules(text: string): ModuleDictReturn {
             case null:
                 //will be null if there was a syntax error in that line
                 returnVal.failed = true;
-                returnVal.error = constructCompileError("Unknown or invalid syntax",
+                returnVal.error = constructCompileError("Unknown syntax",
                     annotatedExpressions[i].lineNumber,
                     ErrorCode.invalidSyntax,
                     annotatedExpressions[i]);
                 return returnVal;
 
             default:
-                if(state === null){
+                if (state === null) {
                     log("found", null)
                     returnVal.failed = true;
                     returnVal.error = constructCompileError("Code between endmodule and next module declaration",
@@ -201,7 +226,7 @@ export function getBaseModules(text: string): ModuleDictReturn {
                         annotatedExpressions[i]);
                     return returnVal;
                 }
-                else{
+                else {
                     moduleContent.push(annotatedExpressions[i]);
                 }
 
@@ -227,7 +252,7 @@ export function getBaseModules(text: string): ModuleDictReturn {
  *  
  * @param annotatedExpressions 
  */
-function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[]) {
+function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[]): ModuleReturn {
 
     let obj: Module = {
         name: null,
@@ -239,6 +264,12 @@ function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[]) {
         nodes: [], //used later
         subModules: [] //used later
     };
+
+    let returnVal: ModuleReturn = {
+        failed: false,
+        error: null,
+        data: obj
+    }
 
     obj.annotatedExpressions = annotatedExpressions;
     obj.name = annotatedExpressions[0].expression.match(/\w+/g)[1]; //get second word
@@ -270,12 +301,20 @@ function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[]) {
         return rightStr.split(",");
     }
 
+    function areDuplicatesIn(arr: string[]): boolean {
+        return arr.length !== new Set(arr).size;
+    }
+
     let bits: number[];
     let vars: string[];
     for (let i = 1; i < annotatedExpressions.length; i++) {
         let temp = annotatedExpressions[i].expression;
         bits = getBits(temp);
         vars = getVariables(temp);
+
+        if (areDuplicatesIn(vars)) {
+
+        }
 
         let tempArr: ParameterSyntax[] = [];
         vars.forEach((ele) => {
@@ -311,28 +350,36 @@ function generateBaseModuleObj(annotatedExpressions: AnnotatedExpression[]) {
         .replace(/\s/g, "")
         .split(",");
 
+    let allIO = obj.inputs.concat(obj.outputs);
+
+    //determine if IO declared in module declearation matches with IO decleared within module
     insNouts.forEach(inOrOut => {
         let parameter: ParameterSyntax;
-        parameter = obj.inputs.find(input => input.name == inOrOut);
+        parameter = allIO.find(input => input.name == inOrOut);
+
         if (!parameter) {
-            parameter = obj.outputs.find(output => output.name == inOrOut);
-        }
-        if (!parameter) {
-            console.log("IO Variable not declared in module body", inOrOut);
-            return null;
+            returnVal.failed = true;
+            returnVal.error = constructCompileError("IO variable not declared in module body",
+                annotatedExpressions[0].lineNumber,
+                ErrorCode.invalidSyntax,
+                annotatedExpressions[0]);
+            return returnVal;
         }
         obj.callSyntax.push(parameter);
     });
 
-    let allIO = obj.inputs.concat(obj.outputs);
     allIO.forEach(inOrOut => {
         if (!obj.callSyntax.find(parameter => parameter.name == inOrOut.name)) {
-            console.log("IO Variable not declared in module declaration", inOrOut);
-            return null;
+            returnVal.failed = true;
+            returnVal.error = constructCompileError("IO variable in body not declared in module declaration",
+                annotatedExpressions[0].lineNumber,
+                ErrorCode.invalidSyntax,
+                annotatedExpressions[0]);
+            return returnVal;
         }
     });
 
-    return obj;
+    return returnVal;
 }
 
 
@@ -441,6 +488,16 @@ function elaborateModuleObj(obj: Module, moduleDict: ModuleDict): ModuleReturn {
                 node.outputs.push(output);
                 node.inputs = node.callSyntax;
                 node.stack = parse(right);
+
+                if (node.stack == null){
+                    returnVal.failed = true;
+                    returnVal.error = constructCompileError("Unknown charcter used in assign statement",
+                        annotatedExpressions[i].lineNumber,
+                        ErrorCode.variableNameNotFound,
+                        annotatedExpressions[i]);
+                    return returnVal;
+                }
+
                 obj.nodes.push(node);
                 break;
 
@@ -601,7 +658,7 @@ export function elaborateModuleDict(moduleDict: ModuleDict): ModuleDictReturn {
 }
 
 /**
- * 
+ * Returns a dict of modules
  * @param text 
  */
 export function compileVerilog(text: string): ModuleDictReturn {
@@ -623,7 +680,8 @@ lexer.addRule(/\s+/, function () {
     /* skip whitespace */
 });
 
-lexer.addRule(/((?=\s*)\w+((\[\d+\])|(\[\d+:\d+\])|\d*'((b[01]+)|(d[0-9]+)|(h[0-9A-F]+)))*)/, function (lexeme) {
+//TODO: make sure I didn't fuck this up
+lexer.addRule(/((?=\s*)((\w+((\[\d+\])|(\[\d+:\d+\]))*)|(\d*'((b[01]+)|(d[0-9]+)|(h[0-9A-F]+))))*)/, function (lexeme) {
     return lexeme; // symbols
 });
 //TODO: also capture: 1234'h1234
@@ -664,8 +722,13 @@ export function parse(input: string): string[] {
     lexer.setInput(input);
     let tokens = [],
         token;
-    while (token = lexer.lex()) tokens.push(token);
-    return parser.parse(tokens);
+        try {
+            while (token = lexer.lex()) tokens.push(token);
+            return parser.parse(tokens);
+        }
+        catch (e){
+            return null;
+        }
 }
 
 //END CODE FROM STACK OVERFLOW

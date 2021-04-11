@@ -174,7 +174,7 @@ export default {
       let inputs = window.localStorage.getItem("inputs");
       let selectedModule = window.localStorage.getItem("selectedModuleName");
       this.modules = compileVerilog(text).data;
-
+  
       let selectedModuleFound = Object.keys(this.modules).find(
         (name) => selectedModule == name
       );
@@ -218,6 +218,33 @@ export default {
             undefined
           ) {
             this.savedInputs[this.modules[Module].name][input.name] = "";
+          }
+        });
+      });
+
+      //detect any extra inputs
+      Object.keys(this.savedInputs).forEach((Module) => {
+        if(this.modules[Module] === undefined){
+          delete this.savedInputs[Module];
+        }
+
+        //looping through savedtypes and savedinputs
+        Object.keys(this.savedInputs[Module]).forEach((input) => {
+          const foundInput = this.modules[Module].inputs.find(
+            (param) => param.name == input
+          );
+
+          if (foundInput == null || foundInput == undefined) {
+            delete this.savedInputs[this.modules[Module].name][input];
+          }
+        });
+        Object.keys(this.savedTypes[Module]).forEach((type) => {
+          const foundType = this.modules[Module].inputs.find(
+            (param) => param.name == type
+          );
+
+          if (foundType == null || foundType == undefined) {
+            delete this.savedTypes[this.modules[Module].name][type];
           }
         });
       });
