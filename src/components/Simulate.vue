@@ -22,7 +22,7 @@
           >
             {{ selectedModule || "No Module Selected" }}
           </button>
-          <div class="dropdown-menu">
+          <div id="dropdown-menu" class="dropdown-menu">
             <a
               v-for="item in modules"
               :key="item.name"
@@ -79,6 +79,7 @@
                 </button>
                 <div
                   class="dropdown-menu"
+                  id="dropdown-menu"
                   style="width: 4.5rem; min-width: 4.5rem"
                 >
                   <a
@@ -174,7 +175,7 @@ export default {
       let inputs = window.localStorage.getItem("inputs");
       let selectedModule = window.localStorage.getItem("selectedModuleName");
       this.modules = compileVerilog(text).data;
-  
+
       let selectedModuleFound = Object.keys(this.modules).find(
         (name) => selectedModule == name
       );
@@ -224,7 +225,7 @@ export default {
 
       //detect any extra inputs
       Object.keys(this.savedInputs).forEach((Module) => {
-        if(this.modules[Module] === undefined){
+        if (this.modules[Module] === undefined) {
           delete this.savedInputs[Module];
         }
 
@@ -417,6 +418,7 @@ input:focus {
   display: block;
   margin: 0.25rem;
   padding-left: 1rem;
+  padding-right: 1em;
   padding-bottom: 0.25rem;
   text-align: left;
 }
@@ -470,15 +472,15 @@ input:focus {
   background-color: #16161c;
 }
 
-.dropdown-menu[data-v-1edb7054] {
+#dropdown-menu {
   background-color: #121212 !important;
   border: 1px solid #6c757d;
-  [data-v-1edb7054] {
+  * {
     color: #999;
     background-color: #121212 !important;
     transition: color 0.15s;
   }
-  [data-v-1edb7054]:hover {
+  *:hover {
     color: white !important;
   }
 }
