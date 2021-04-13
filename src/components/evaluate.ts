@@ -256,12 +256,12 @@ export class Evaluator {
         let nodesNotEvaluated = clone(module.nodes);
 
         let initialLength;
-        // mainWhile:
         while (nodesNotEvaluated.length > 0) {
             initialLength = nodesNotEvaluated.length
             for (let nodeIndex = 0; nodeIndex < nodesNotEvaluated.length; nodeIndex++) {
                 const node = nodesNotEvaluated[nodeIndex];
 
+                //checks if all parameters needed for evaluating the node exist
                 let allParametesEvaluated = true;
                 //using for loops instead of foreach 
                 //for more efficent run time because this is a hella lot of for loops
@@ -297,7 +297,6 @@ export class Evaluator {
                                 return returnVal;
                             }
                             else {
-                                console.log(answer.data)
                                 let expectedBitLength = node.outputs[0].endBit - node.outputs[0].beginBit + 1;
                                 if (answer.data.length != expectedBitLength) {
                                     returnVal.error = constructCompileError(
@@ -390,7 +389,6 @@ export class Evaluator {
                     }
 
                     nodesNotEvaluated.splice(nodeIndex, 1);
-
                 }
             }
 
@@ -405,19 +403,43 @@ export class Evaluator {
             }
         }
 
-        let output: boolean[][] = [];
 
+        let output: boolean[][] = [];
         module.outputs.forEach(parameter => {
             output.push(IOandWires[parameter.name]);
         });
-        module.IOandWireValues = clone(IOandWires);
-        //allows submodule to add itself to parent when done
-        if (parent) {
-            parent.subModules.push(module);
+
+        let nullOutput: boolean = false;
+        outer:
+        for (let i = 0; i < output.length; i++) {
+            for (let j = 0; j < output[i].length; j++) {
+                let bit = output[i][j];
+                if(bit === null) {
+                    nullOutput = true;
+                    break outer;
+                }
+            }
         }
 
-        returnVal.data = output;
-        return returnVal;
+        if(nullOutput){
+            returnVal.failed = true;
+            returnVal.error = constructCompileError("Not all output bits assigned to!",
+            module.annotatedExpressions[0].lineNumber,
+            ErrorCode.disconnectedWires,
+            IOandWires);
+
+            return returnVal;
+        }
+        else{
+            module.IOandWireValues = clone(IOandWires);
+            //allows submodule to add itself to parent when done
+            if (parent) {
+                parent.subModules.push(module);
+            }
+    
+            returnVal.data = output;
+            return returnVal;
+        }
     }
 }
 

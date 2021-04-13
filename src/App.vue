@@ -4,26 +4,34 @@
       <div class="subNav">
         <div style="text-align: left">
           <h2 style="margin-bottom: -10px; font-weight: bold">
-            Andrew's Verilog Sim
-          </h2>
-          <sub>Done in Javascript because I am a masochist</sub>
-        </div>
-      </div>
+            <span> Andrew's Verilog Sim </span>
 
-      <div>
-        <a
-          href="https://github.com/AndrewCaylor/OnlineVerilogSimulator"
-          target="_blank"
-        >
-          <i class="bi bi-github"></i
-        ></a>
+            <span style="font-size: x-large">
+              <a
+                href="https://github.com/AndrewCaylor/OnlineVerilogSimulator"
+                target="_blank"
+                style="margin-right: 1rem"
+              >
+                <i class="bi bi-github"></i
+              ></a>
+
+              <a
+                href=" https://www.linkedin.com/in/andrew-caylor-377a03198 "
+                target="_blank"
+              >
+                <i class="bi bi-linkedin"></i
+              ></a>
+            </span>
+          </h2>
+          <sub style="color: ">Written in Javascript for some reason??</sub>
+        </div>
       </div>
 
       <div class="subNav">
         <div>
           <button
             type="button"
-            v-bind:class="{ disabled: !showEditor }"
+            v-bind:class="{ disabled: !showEditor | isError }"
             class="btn btn-outline-secondary"
             v-on:click="toggle()"
           >
@@ -46,10 +54,10 @@
     <!-- fills in for position fixed nav -->
     <div style="height: 5rem"></div>
 
-    <div v-bind:class="{hidden: !showEditor}">
-      <Editor />
+    <div v-bind:class="{ hidden: !showEditor }">
+      <Editor @isCompileError="onUpdate" />
     </div>
-    <div v-bind:class="{hidden: showEditor}">
+    <div v-bind:class="{ hidden: showEditor }">
       <Simulate :isVisible="!showEditor" />
     </div>
   </div>
@@ -83,12 +91,16 @@ export default {
       }
       this.showEditor = !this.showEditor;
     },
+    onUpdate(input) {
+      this.isError = input;
+    },
   },
   data() {
     return {
       leftContent: "Simulate",
       rightContent: "editing...",
       showEditor: true,
+      isError: false,
     };
   },
 };
@@ -188,7 +200,7 @@ body {
   height: 100%;
 }
 
-.hidden{
+.hidden {
   //hide and remove from dom flow
   visibility: hidden;
   position: fixed;

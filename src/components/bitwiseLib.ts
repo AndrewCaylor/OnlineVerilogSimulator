@@ -88,11 +88,19 @@ export function isValidBitString(text: string) {
  */
 export function bitArrayToString(array: boolean[], radix: number) {
     let out = "";
+    let error = false;
     clone(array).reverse().forEach(bit => {
-        out += bit ? "1" : "0";
+        if (bit === null){
+            out += "?";
+            error = true;
+        }
+        else{
+            out += bit ? "1" : "0";
+        }
     });
     let multiplier = Math.log2(radix);
-    let string = parseInt(out, 2).toString(radix);
+    let string = out;
+    if (!error) string = parseInt(out, 2).toString(radix);
     if (radix != 10) {
         while (string.length < (array.length / multiplier)) string = "0" + string;
     }

@@ -1,6 +1,6 @@
 <template>
   <div class="main" v-on:click="highlightLine()" @keyup="highlightLine">
-    <div style="margin: 1rem">
+    <div style="margin: 1rem; width: 100%">
       <prism-editor
         v-model="verilogCode"
         :highlight="highlighter"
@@ -29,11 +29,16 @@ import ErrorPopup from "./ErrorPopup";
 import { getError } from ".//evaluate";
 import { defaultCode } from ".//defaultCode";
 
+var map = {};
+onkeydown = onkeyup = function (e) {
+  map[e.key] = e.type == "keydown";
+};
+
 export default {
   components: { PrismEditor, ErrorPopup },
   name: "Editor",
   idCounter: 0,
-  props: ['isCompileError'],
+  props: ["isCompileError"],
   data() {
     return {
       verilogCode: "",
@@ -42,6 +47,7 @@ export default {
       lastLineNumeber: null, //a number
       showError: false,
       errorData: null,
+      lastPos: null,
     };
   },
   methods: {
@@ -49,7 +55,7 @@ export default {
       let error = getError(this.verilogCode);
       if (error) {
         this.errorData = error;
-        console.log("SHOW ERROR IF ERROR RAN::: ", error.message);
+        console.log(error.message);
       } else {
         console.log("no error");
       }
@@ -65,8 +71,32 @@ export default {
     },
     //runs on every onclick
     highlightLine() {
-      //should only be one textarea for now
       let mainTextArea = document.getElementsByTagName("textarea")[0];
+
+      //when text is replaced, it automatically moves the cursor to the end,
+      //this is needed to reset it
+      if (this.lastPos !== null) {
+        mainTextArea.selectionEnd = this.lastPos;
+        this.lastPos = null;
+      }
+      //allows using ctrl + / to comment a line!
+      if (map.Control && map["/"]) {
+        this.lastPos = mainTextArea.selectionEnd;
+
+        let arr = this.verilogCode.split("\n");
+        if (arr[this.lastLineNumeber - 1].includes("//")) {
+          arr[this.lastLineNumeber - 1] = arr[this.lastLineNumeber - 1].replace(
+            "//",
+            ""
+          );
+          this.lastPos = mainTextArea.selectionEnd - 2;
+        } else {
+          arr[this.lastLineNumeber - 1] = "//" + arr[this.lastLineNumeber - 1];
+          this.lastPos = mainTextArea.selectionEnd + 2;
+        }
+        this.verilogCode = arr.join("\n");
+      }
+      //should only be one textarea for now
       //line number the cursor is on
       let lineNumber = mainTextArea.value
         .substr(0, mainTextArea.selectionStart)
@@ -106,7 +136,7 @@ export default {
 @import "~bootstrap-vue/src/index.scss";
 
 .myEditor {
-  font-family: 'Courier New', Courier, monospace;
+  font-family: "Courier New", Courier, monospace;
   padding-bottom: 5rem;
 }
 

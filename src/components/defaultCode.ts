@@ -1,4 +1,17 @@
 export const defaultCode = `
+ /**
+
+  Hello!
+  
+  Welcome to my online Verilog Simulator!
+  I created this to be a quick and easy way to debug your verilog code.
+  However, there are some limitations of my debugger...
+  
+  Please read to get a better idea of how to use this sim:
+  https://github.com/AndrewCaylor/OnlineVerilogSimulator#readme
+  
+*/
+
 module adder8bit(result, OpA, OpB, carryOut);
   input [7:0] OpA, OpB;
   output [7:0] result;
@@ -33,6 +46,21 @@ module oneBitFullAdder(out, carryOut, x, y, carryIn);
   oneBitHalfAdder h2(out, h2CarryOut, h1Out, carryIn);
 
   or or1(carryOut, h1CarryOut, h2CarryOut);    
+endmodule
+
+module assignExample(a, b, c, d, out);
+  input [1:0] a, b, c, d;
+  output [3:0] out;
+
+  assign out = {2{a ^ b}} & {2{c | d}};
+endmodule
+
+module assignExample2(in, out);
+  input [1:0] in;
+  output [3:0] out;
+  assign out[1:0] = in | 'b10;
+  assign out[3:2] = in & 'b01;
+  
 endmodule
 
 `;
