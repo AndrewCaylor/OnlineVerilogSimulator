@@ -55,9 +55,9 @@ export default {
       let error = getError(this.verilogCode);
       if (error) {
         this.errorData = error;
-        console.log(error.message);
+        // console.log(error.message);
       } else {
-        console.log("no error");
+        // console.log("no error");
       }
       this.showError = !!error;
       this.$emit("isCompileError", this.showError);
