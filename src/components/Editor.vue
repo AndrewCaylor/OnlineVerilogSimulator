@@ -110,8 +110,10 @@ export default {
       //edits the color attributes of the line number elements
       if (lineNumber != this.lastLineNumeber) {
         domElements[lineNumber - 1].style.color = "white";
-        if (this.lastLineNumeber !== null)
+        if (this.lastLineNumeber !== null
+            && domElements[this.lastLineNumeber - 1] !== undefined){
           domElements[this.lastLineNumeber - 1].style.color = "#999";
+        }
         this.lastLineNumeber = lineNumber;
       }
 
